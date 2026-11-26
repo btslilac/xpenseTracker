@@ -39,9 +39,9 @@ tailwind.config = {
 
 <main class="w-full max-w-xl md:max-w-4xl mx-auto px-4 py-4 flex flex-col gap-5">
   <!-- Financial Integrity Disclaimer Note -->
-  <div class="p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 flex items-start gap-3">
-    <span class="material-symbols-outlined text-indigo-600 dark:text-indigo-400 text-[20px] mt-0.5">account_balance</span>
-    <p class="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+  <div class="p-3.5 rounded-2xl bg-slate-100 dark:bg-[var(--surface-container)] border border-slate-200 dark:border-[var(--outline-variant)] flex items-start gap-3">
+    <span class="material-symbols-outlined text-indigo-600 dark:text-[var(--action-primary)] text-[20px] mt-0.5">account_balance</span>
+    <p class="text-[11px] text-slate-600 dark:text-[var(--text-secondary)] leading-relaxed">
       <strong>Accounting Standard:</strong> Loan principal is tracked as receivables and payables and does not distort your daily expense or income budget. Only interest portions reflect as income or expense.
     </p>
   </div>
@@ -49,19 +49,19 @@ tailwind.config = {
   <div class="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
     <!-- Receivables vs Payables Card -->
     <section class="theme-card p-5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col gap-4">
-      <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Position Overview</h2>
+      <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-[var(--text-secondary)]">Position Overview</h2>
       
       <div class="grid grid-cols-2 gap-3">
-        <div class="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/40 flex flex-col">
-          <span class="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 uppercase">Receivables (Money Lent)</span>
-          <h3 id="stat-report-lent-rem" class="text-base font-black text-emerald-800 dark:text-emerald-200 mt-1">KSh 0</h3>
-          <span id="stat-report-lent-tot" class="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5">Total: KSh 0</span>
+        <div class="p-3 rounded-xl bg-emerald-50 dark:bg-[var(--fin-income-bg)] border border-emerald-100 dark:border-emerald-500/25 flex flex-col">
+          <span class="text-[10px] font-semibold text-emerald-700 dark:text-[var(--fin-income)] uppercase">Receivables (Money Lent)</span>
+          <h3 id="stat-report-lent-rem" class="text-base font-black text-emerald-800 dark:text-[var(--text-primary)] mt-1">KSh 0</h3>
+          <span id="stat-report-lent-tot" class="text-[10px] text-emerald-600 dark:text-[var(--fin-income)] mt-0.5">Total: KSh 0</span>
         </div>
 
-        <div class="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900/40 flex flex-col">
-          <span class="text-[10px] font-semibold text-rose-700 dark:text-rose-400 uppercase">Payables (Money I Owe)</span>
-          <h3 id="stat-report-borrow-rem" class="text-base font-black text-rose-800 dark:text-rose-200 mt-1">KSh 0</h3>
-          <span id="stat-report-borrow-tot" class="text-[10px] text-rose-600 dark:text-rose-400 mt-0.5">Total: KSh 0</span>
+        <div class="p-3 rounded-xl bg-rose-50 dark:bg-[var(--fin-expense-bg)] border border-rose-100 dark:border-rose-500/25 flex flex-col">
+          <span class="text-[10px] font-semibold text-rose-700 dark:text-[var(--fin-expense)] uppercase">Payables (Money I Owe)</span>
+          <h3 id="stat-report-borrow-rem" class="text-base font-black text-rose-800 dark:text-[var(--text-primary)] mt-1">KSh 0</h3>
+          <span id="stat-report-borrow-tot" class="text-[10px] text-rose-600 dark:text-[var(--fin-expense)] mt-0.5">Total: KSh 0</span>
         </div>
       </div>
     </section>
@@ -69,40 +69,40 @@ tailwind.config = {
     <div class="flex flex-col gap-5">
       <!-- Interest Analytics -->
       <section class="theme-card p-5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col gap-4">
-        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Interest Performance</h2>
+        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-[var(--text-secondary)]">Interest Performance</h2>
 
         <div class="grid grid-cols-2 gap-3">
-          <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 flex flex-col">
-            <span class="text-[10px] text-slate-400 uppercase font-semibold">Interest Earned</span>
-            <h3 id="stat-interest-received" class="text-sm font-black text-emerald-600 dark:text-emerald-400 mt-1">+KSh 0</h3>
-            <span class="text-[9px] text-slate-400">Recorded as income</span>
+          <div class="p-3 rounded-xl bg-slate-50 dark:bg-[var(--surface-container-low)] border border-slate-100 dark:border-[var(--outline-variant)] flex flex-col">
+            <span class="text-[10px] text-slate-400 dark:text-[var(--text-muted)] uppercase font-semibold">Interest Earned</span>
+            <h3 id="stat-interest-received" class="text-sm font-black text-emerald-600 dark:text-[var(--fin-income)] mt-1">+KSh 0</h3>
+            <span class="text-[9px] text-slate-400 dark:text-[var(--text-muted)]">Recorded as income</span>
           </div>
 
-          <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 flex flex-col">
-            <span class="text-[10px] text-slate-400 uppercase font-semibold">Interest Paid</span>
-            <h3 id="stat-interest-paid" class="text-sm font-black text-rose-600 dark:text-rose-400 mt-1">-KSh 0</h3>
-            <span class="text-[9px] text-slate-400">Recorded as expense</span>
+          <div class="p-3 rounded-xl bg-slate-50 dark:bg-[var(--surface-container-low)] border border-slate-100 dark:border-[var(--outline-variant)] flex flex-col">
+            <span class="text-[10px] text-slate-400 dark:text-[var(--text-muted)] uppercase font-semibold">Interest Paid</span>
+            <h3 id="stat-interest-paid" class="text-sm font-black text-rose-600 dark:text-[var(--fin-expense)] mt-1">-KSh 0</h3>
+            <span class="text-[9px] text-slate-400 dark:text-[var(--text-muted)]">Recorded as expense</span>
           </div>
         </div>
       </section>
 
       <!-- Health & Fulfillment Rates -->
       <section class="theme-card p-5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col gap-3">
-        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Portfolio Health</h2>
+        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-[var(--text-secondary)]">Portfolio Health</h2>
 
-        <div class="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-700/60 text-xs">
-          <span class="text-slate-600 dark:text-slate-400">Active Agreements</span>
-          <span id="stat-active-count" class="font-bold text-slate-900 dark:text-slate-100">0</span>
+        <div class="flex items-center justify-between py-2 border-b border-slate-100 dark:border-[var(--outline-variant)] text-xs">
+          <span class="text-slate-600 dark:text-[var(--text-secondary)]">Active Agreements</span>
+          <span id="stat-active-count" class="font-bold text-slate-900 dark:text-[var(--text-primary)]">0</span>
         </div>
 
-        <div class="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-700/60 text-xs">
-          <span class="text-slate-600 dark:text-slate-400">Settled Agreements</span>
-          <span id="stat-settled-count" class="font-bold text-emerald-600 dark:text-emerald-400">0</span>
+        <div class="flex items-center justify-between py-2 border-b border-slate-100 dark:border-[var(--outline-variant)] text-xs">
+          <span class="text-slate-600 dark:text-[var(--text-secondary)]">Settled Agreements</span>
+          <span id="stat-settled-count" class="font-bold text-emerald-600 dark:text-[var(--fin-income)]">0</span>
         </div>
 
         <div class="flex items-center justify-between py-2 text-xs">
-          <span class="text-slate-600 dark:text-slate-400">Overdue Obligations</span>
-          <span id="stat-overdue-count" class="font-bold text-rose-600 dark:text-rose-400">0</span>
+          <span class="text-slate-600 dark:text-[var(--text-secondary)]">Overdue Obligations</span>
+          <span id="stat-overdue-count" class="font-bold text-rose-600 dark:text-[var(--fin-expense)]">0</span>
         </div>
       </section>
     </div>

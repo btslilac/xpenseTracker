@@ -5,7 +5,7 @@ import * as ImagePicker from 'expo-image-picker'
 import * as Notifications from 'expo-notifications'
 import { checkAndPushLoanNotifications, initLoanNotifications } from './src/lib/loanNotifications'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AppState, Linking, Platform, StyleSheet, View, Animated, BackHandler, useColorScheme, Vibration, Modal, Text, TouchableOpacity } from 'react-native'
+import { AppState, Linking, Platform, Share, StyleSheet, View, Animated, BackHandler, useColorScheme, Vibration, Modal, Text, TouchableOpacity } from 'react-native'
 import * as LocalAuthentication from 'expo-local-authentication'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { hapticSelection, hapticLight, hapticMedium, hapticSuccess, hapticError } from './src/lib/haptics'
@@ -18,6 +18,7 @@ import { resolveAppearance } from './src/lib/appearance'
 import { generateThemeCss, getThemeBridgeVariables } from './src/bridge/themeTokens'
 import { formatCurrency, getAccountSummary } from './src/lib/finance'
 import { allocateWaterfallPayment, calculateAgreementBalances, isCasualAgreement } from './src/lib/lendingFinance'
+import { buildUserDataExportPackage, SMS_DISCLOSURE_VERSION } from './src/lib/legal/complianceDocuments'
 import { smsDetectionService, type OsPermissionsSnapshot } from './src/lib/sms/smsDetectionService'
 import type { PendingSmsDetection } from './src/lib/sms/smsParser.types'
 
@@ -103,6 +104,10 @@ function RootApp() {
     signInWithGoogleOAuth,
     signInWithEmail,
     signUpWithEmail,
+    requestPasswordReset,
+    verifyGuardianConsentCode,
+    submitPrivacyRequest,
+    withdrawSmsConsent,
     signOut,
     updateSettings,
     deleteAccount,
@@ -123,7 +128,17 @@ function RootApp() {
     syncStatus,
   } = useApp()
 
-  const [authRoute, setAuthRoute] = useState<'signin' | 'signup'>('signin')
+  const [authStack, setAuthStack] = useState<StitchRoute[]>(['signin'])
+  const [authParams, setAuthParams] = useState<Record<string, string>>({})
+  const authRoute = authStack[authStack.length - 1] || 'signin'
+  const setAuthRoute = useCallback((route: StitchRoute, params: Record<string, string> = {}) => {
+    setAuthParams(params)
+    setAuthStack([route])
+  }, [])
+  const isMinorRestricted = Boolean(
+    currentAccount?.settings.compliance?.isMinor &&
+      currentAccount?.settings.compliance?.guardianConsentStatus !== 'verified'
+  )
   const [routeStack, setRouteStack] = useState<StitchRoute[]>(['dashboard'])
   const [currentParams, setCurrentParams] = useState<Record<string, string>>({})
   const navDirectionRef = useRef<'tab' | 'forward' | 'back'>('tab')
@@ -132,11 +147,9 @@ function RootApp() {
   const insets = useSafeAreaInsets()
   const colorScheme = useColorScheme()
 
-  // Animation & Delayed Skeleton states
+  // Animation state for smooth HTML updates
   const fadeAnim = useRef(new Animated.Value(1)).current
   const [displayHtml, setDisplayHtml] = useState('')
-  const [showSkeletonOverlay, setShowSkeletonOverlay] = useState(false)
-  const skeletonTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [statusBarOverride, setStatusBarOverride] = useState<'light' | 'dark' | null>(null)
 
   // OS Permissions Diagnostics (silent check) + SMS Classification Queue + Budget Overrun
@@ -336,7 +349,15 @@ function RootApp() {
 
   const refreshOsPermissionsSilently = useCallback(async () => {
     const snap = await smsDetectionService.checkPermissionsStatus()
-    setOsPermissions(snap)
+    setOsPermissions((prev) =>
+      prev.notificationsGranted === snap.notificationsGranted &&
+      prev.smsGranted === snap.smsGranted &&
+      prev.notificationListenerGranted === snap.notificationListenerGranted &&
+      prev.overlayGranted === snap.overlayGranted &&
+      prev.platform === snap.platform
+        ? prev
+        : snap
+    )
     return snap
   }, [])
 
@@ -346,7 +367,12 @@ function RootApp() {
   }, [])
 
   const syncNativeSmsQueue = useCallback(async () => {
-    if (!currentAccount || !currentAccount.settings?.smsTransactionDetection || isSyncingCapturedExpenses.current) {
+    if (
+      !currentAccount ||
+      isMinorRestricted ||
+      !currentAccount.settings?.smsTransactionDetection ||
+      isSyncingCapturedExpenses.current
+    ) {
       return
     }
     isSyncingCapturedExpenses.current = true
@@ -381,6 +407,7 @@ function RootApp() {
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active') {
+        fadeAnim.setValue(1)
         void refreshDynamicPalette()
         void refreshOsPermissionsSilently()
         void syncNativeSmsQueue()
@@ -398,11 +425,11 @@ function RootApp() {
     return () => {
       subscription.remove()
     }
-  }, [currentAccount?.settings?.biometricLock, isAuthenticated, authenticateWithBiometrics, refreshDynamicPalette, refreshOsPermissionsSilently, syncNativeSmsQueue])
+  }, [currentAccount?.settings?.biometricLock, isAuthenticated, authenticateWithBiometrics, fadeAnim, refreshDynamicPalette, refreshOsPermissionsSilently, syncNativeSmsQueue])
 
   // Initialize opt-in SMS detection listener & restore any queued local detections
   useEffect(() => {
-    if (isAuthenticated && currentAccount?.settings?.smsTransactionDetection) {
+    if (isAuthenticated && !isMinorRestricted && currentAccount?.settings?.smsTransactionDetection) {
       smsDetectionService.start(currentAccount.id, (pending, totalPending) => {
         if (pending) {
           setActiveSmsDetection({ detection: pending, queueCount: totalPending })
@@ -417,9 +444,18 @@ function RootApp() {
     return () => {
       smsDetectionService.stop()
     }
-  }, [isAuthenticated, currentAccount?.id, currentAccount?.settings?.smsTransactionDetection, syncNativeSmsQueue, presentNextSmsDetection])
+  }, [isAuthenticated, isMinorRestricted, currentAccount?.id, currentAccount?.settings?.smsTransactionDetection, syncNativeSmsQueue, presentNextSmsDetection])
 
   const navigate = useCallback((route: StitchRoute, params?: Record<string, string>) => {
+    if (!isAuthenticated) {
+      const publicRoutes: StitchRoute[] = ['signin', 'signup', 'forgotPassword', 'privacyPolicy', 'termsOfService']
+      if (publicRoutes.includes(route)) {
+        navDirectionRef.current = 'forward'
+        setAuthParams(params || {})
+        setAuthStack((prev) => (prev[prev.length - 1] === route ? prev : [...prev, route]))
+      }
+      return
+    }
     navDirectionRef.current = mainRoutes.includes(route) ? 'tab' : 'forward'
     if (route === 'notifications') {
       void refreshOsPermissionsSilently()
@@ -436,13 +472,17 @@ function RootApp() {
       setCurrentParams(params || {})
       return [...current, route]
     })
-  }, [currentParams, refreshOsPermissionsSilently])
+  }, [isAuthenticated, currentParams, refreshOsPermissionsSilently])
 
   const goBack = useCallback(() => {
     navDirectionRef.current = 'back'
+    if (!isAuthenticated) {
+      setAuthStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : ['signin']))
+      return
+    }
     pendingSmsCreateLinkRef.current = null
     setRouteStack((current) => (current.length > 1 ? current.slice(0, -1) : ['dashboard']))
-  }, [])
+  }, [isAuthenticated])
 
   // Automatically check and push notifications for overdue loans and loans due this week
   useEffect(() => {
@@ -486,7 +526,14 @@ function RootApp() {
         return true
       }
 
-      if (!isAuthenticated) return false
+      if (!isAuthenticated) {
+        if (authStack.length > 1) {
+          navDirectionRef.current = 'back'
+          setAuthStack((prev) => prev.slice(0, -1))
+          return true
+        }
+        return false
+      }
 
       setRouteStack((current) => {
         if (current.length > 1) {
@@ -506,7 +553,7 @@ function RootApp() {
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction)
     return () => backHandler.remove()
-  }, [isAuthenticated])
+  }, [isAuthenticated, authStack.length])
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -536,11 +583,11 @@ function RootApp() {
       return
     }
 
-    void syncSmsExpenseCaptureConfiguration(currentAccount ?? null)
-    if (currentAccount?.settings?.smsTransactionDetection) {
+    void syncSmsExpenseCaptureConfiguration(isMinorRestricted ? null : (currentAccount ?? null))
+    if (!isMinorRestricted && currentAccount?.settings?.smsTransactionDetection) {
       void syncNativeSmsQueue()
     }
-  }, [currentAccount, syncNativeSmsQueue])
+  }, [currentAccount, isMinorRestricted, syncNativeSmsQueue])
 
   useEffect(() => {
     if (!isSmsExpenseCaptureAvailable()) {
@@ -620,9 +667,10 @@ function RootApp() {
       currentRoute,
       currentAccountRef.current ?? undefined,
       {
-        ...currentParams,
+        ...(isAuthenticated ? currentParams : authParams),
         workspace: currentParams.workspace || preferredWorkspaceRef.current,
         _navDirection: navDirectionRef.current,
+        _helpTooltipsDisabled: String(Boolean(currentAccount?.settings.compliance?.helpTooltipsDisabled)),
         _notifGranted: String(osPermissions.notificationsGranted),
         _smsGranted: String(osPermissions.smsGranted),
         _listenerGranted: String(osPermissions.notificationListenerGranted),
@@ -650,6 +698,8 @@ function RootApp() {
     coreAccountKey,
     currentRoute,
     currentParams,
+    authParams,
+    isAuthenticated,
     osPermissions,
     insets.top,
     insets.bottom,
@@ -923,28 +973,64 @@ function RootApp() {
       }
 
       if (type === 'notifications.permissions.request') {
-        const perm = await smsDetectionService.requestPermissions()
-        const snap = await refreshOsPermissionsSilently()
-        webViewRef.current?.injectJavaScript(
-          `if (window.__stitchUpdateNotificationPerms) { window.__stitchUpdateNotificationPerms(${JSON.stringify(snap)}); } true;`
-        )
-        if (!perm.ok && perm.reason) {
-          if (perm.neverAskAgain) {
-            showAppConfirm({
-              variant: 'warning',
-              title: 'Open App Settings',
-              message: perm.reason,
-              confirmLabel: 'Open Settings',
-              cancelLabel: 'Later',
-              onConfirm: () => {
-                void Linking.openSettings()
-              },
-            })
-          } else {
-            showAppFeedback({ variant: 'warning', title: 'Permissions Needed', message: perm.reason })
+        if (isMinorRestricted) {
+          showAppFeedback({
+            variant: 'warning',
+            title: 'Guardian Verification Required',
+            message: 'Automated SMS transaction permissions are paused until a parent or guardian verifies consent under Kenya DPA.',
+          })
+          return
+        }
+        const proceedRequest = async () => {
+          const perm = await smsDetectionService.requestPermissions()
+          const snap = await refreshOsPermissionsSilently()
+          webViewRef.current?.injectJavaScript(
+            `if (window.__stitchUpdateNotificationPerms) { window.__stitchUpdateNotificationPerms(${JSON.stringify(snap)}); } true;`
+          )
+          if (!perm.ok && perm.reason) {
+            if (perm.neverAskAgain) {
+              showAppConfirm({
+                variant: 'warning',
+                title: 'Open App Settings',
+                message: perm.reason,
+                confirmLabel: 'Open Settings',
+                cancelLabel: 'Later',
+                onConfirm: () => {
+                  void Linking.openSettings()
+                },
+              })
+            } else {
+              showAppFeedback({ variant: 'warning', title: 'Permissions Needed', message: perm.reason })
+            }
+          } else if (perm.ok) {
+            showAppToast('SMS & notification permissions active.', 'success')
           }
-        } else if (perm.ok) {
-          showAppToast('SMS & notification permissions active.', 'success')
+        }
+        showAppConfirm({
+          variant: 'info',
+          title: 'Prominent SMS & Notification Disclosure',
+          message: 'XpenseTracker requests READ_SMS and RECEIVE_SMS permissions ONLY to parse Kenyan M-PESA, Fuliza, and bank alert messages locally on your device. Raw SMS inbox text is never uploaded to cloud servers or shared. You can decline and still paste SMS text manually.',
+          confirmLabel: 'Agree & Continue',
+          cancelLabel: 'Use Manual Paste',
+          onConfirm: () => { void proceedRequest() },
+        })
+        return
+      }
+
+      if (type === 'sms.manual.import' && currentAccount) {
+        const rawText = String(message.rawText || '')
+        const res = await smsDetectionService.ingestManualPastedMessages(currentAccount.id, rawText)
+        await presentNextSmsDetection(currentAccount.id)
+        if (res.importedCount > 0) {
+          showAppToast(`Parsed ${res.importedCount} transaction(s) for review.`, 'success')
+        } else if (res.skippedDuplicates > 0) {
+          showAppToast('Those SMS transactions were already recorded or queued.', 'info')
+        } else {
+          showAppFeedback({
+            variant: 'info',
+            title: 'No Transaction Found',
+            message: 'Could not recognize an M-PESA, Fuliza, or Kenyan bank transaction format in the pasted text.',
+          })
         }
         return
       }
@@ -991,7 +1077,12 @@ function RootApp() {
 
           const categoryId = matchedCat?.id ?? resolveCategoryId(requestedCatName || 'General', txKind)
           const notePrefix = txKind === 'income' ? 'From' : 'To'
-          const noteText = `${parsed.provider} ${notePrefix} ${parsed.counterpartyName}${parsed.referenceCode ? ` (Ref: ${parsed.referenceCode})` : ''}`
+          const fulizaSuffix = parsed.fulizaDetails?.isFulizaInvolved
+            ? txKind === 'income'
+              ? ` • Fuliza Auto-Recovered: ${formatCurrency(parsed.fulizaDetails.fulizaAmount || 0, parsed.currency)}`
+              : ` • Fuliza Funded: ${formatCurrency(parsed.fulizaDetails.fulizaAmount || 0, parsed.currency)}`
+            : ''
+          const noteText = `${parsed.provider} ${notePrefix} ${parsed.counterpartyName}${parsed.referenceCode ? ` (Ref: ${parsed.referenceCode})` : ''}${fulizaSuffix}`
 
           let triggerBudgetOverrun = false
           let overrunAmount = parsed.amount
@@ -1153,7 +1244,12 @@ function RootApp() {
       }
 
       if (type === 'auth.switch') {
-        setAuthRoute(String(message.mode) === 'signup' ? 'signup' : 'signin')
+        const nextMode = String(message.mode)
+        const prefillEmail = message.email ? String(message.email).trim() : ''
+        const allowedMode: StitchRoute =
+          nextMode === 'signup' ? 'signup' : nextMode === 'forgotPassword' ? 'forgotPassword' : 'signin'
+        navDirectionRef.current = allowedMode === 'signin' ? 'back' : 'forward'
+        setAuthRoute(allowedMode, prefillEmail ? { email: prefillEmail } : {})
         return
       }
 
@@ -1167,27 +1263,46 @@ function RootApp() {
         const email = String(message.email || '').trim()
         const password = String(message.password || '')
 
-        if (!email || !password) {
-          showAppFeedback({ variant: 'warning', title: 'Missing fields', message: 'Please enter both email and password.' })
+        if (mode === 'signup') {
+          const result = await signUpWithEmail({
+            fullName: String(message.fullName || ''),
+            email,
+            password,
+            ageBracket: message.ageBracket === 'under_18' ? 'under_18' : 'adult_18_plus',
+            guardianName: message.guardianName ? String(message.guardianName) : undefined,
+            guardianEmail: message.guardianEmail ? String(message.guardianEmail) : undefined,
+            acceptedLegal: Boolean(message.acceptedLegal),
+          })
+          webViewRef.current?.injectJavaScript(
+            `if (window.__stitchAuthResult) { window.__stitchAuthResult(${JSON.stringify(result)}); } true;`
+          )
+          if (result.ok && result.requiresGuardianConsent) {
+            showAppFeedback({
+              variant: 'info',
+              title: 'Guardian Consent Required',
+              message: result.message,
+            })
+          }
           return
         }
 
-        const result = mode === 'signup'
-          ? await signUpWithEmail(email, password)
-          : await signInWithEmail(email, password)
-
-        if (!result.ok) {
-          // Check for "Email not confirmed" error or similar
-          if (result.message.toLowerCase().includes('confirm')) {
-            showAppFeedback({
-              variant: 'info',
-              title: 'Check your email',
-              message: 'Please confirm your email address to sign in.',
-            })
-          } else {
-            showAppFeedback({ variant: 'error', title: 'Authentication Failed', message: result.message })
-          }
+        const result = await signInWithEmail(email, password)
+        webViewRef.current?.injectJavaScript(
+          `if (window.__stitchAuthResult) { window.__stitchAuthResult(${JSON.stringify(result)}); } true;`
+        )
+        // Strict haptic scoping: trigger single haptic feedback ONLY on confirmed wrong password response
+        if (!result.ok && result.errorType === 'invalid_credentials') {
+          void hapticError()
         }
+        return
+      }
+
+      if (type === 'auth.password.reset') {
+        const email = String(message.email || '').trim()
+        const result = await requestPasswordReset(email)
+        webViewRef.current?.injectJavaScript(
+          `if (window.__stitchAuthResult) { window.__stitchAuthResult(${JSON.stringify(result)}); } true;`
+        )
         return
       }
 
@@ -1439,47 +1554,150 @@ function RootApp() {
       if (type === 'settings.sms.toggle') {
         const enabled = Boolean(message.enabled)
         if (enabled) {
-          const perm = await smsDetectionService.requestPermissions()
-          const snap = await refreshOsPermissionsSilently()
-          if (perm.ok && currentAccount) {
-            await updateSettings({ smsTransactionDetection: true })
-            smsDetectionService.start(currentAccount.id, (pending, totalPending) => {
-              if (pending) setActiveSmsDetection({ detection: pending, queueCount: totalPending })
+          if (isMinorRestricted) {
+            webViewRef.current?.injectJavaScript(
+              `if(window.__stitchSetSmsToggleState){window.__stitchSetSmsToggleState(false);} var t=document.getElementById('toggle-sms-detection'); if(t) t.checked=false; true;`
+            )
+            showAppFeedback({
+              variant: 'warning',
+              title: 'Parental Consent Required',
+              message: 'Under Kenya DPA Section 33, automated SMS transaction detection is locked until a parent or guardian verifies consent in Privacy & Data Center.',
             })
-            void syncNativeSmsQueue()
-            webViewRef.current?.injectJavaScript(
-              `if (window.__stitchUpdateNotificationPerms) { window.__stitchUpdateNotificationPerms(${JSON.stringify(snap)}); } true;`
-            )
-            showAppToast('Local SMS transaction detection enabled.', 'success')
-          } else {
-            await updateSettings({ smsTransactionDetection: false })
-            webViewRef.current?.injectJavaScript(
-              `if(window.__stitchSetSmsToggleState){window.__stitchSetSmsToggleState(false);} var t=document.getElementById('toggle-sms-detection'); if(t) t.checked=false; if(window.__stitchUpdateNotificationPerms){window.__stitchUpdateNotificationPerms(${JSON.stringify(snap)});} true;`
-            )
-            if (perm.neverAskAgain) {
-              showAppConfirm({
-                variant: 'warning',
-                title: 'SMS Permission Blocked',
-                message: perm.reason || 'Open App Settings -> Permissions -> SMS to allow M-PESA & bank alert detection.',
-                confirmLabel: 'Open Settings',
-                cancelLabel: 'Cancel',
-                onConfirm: () => {
-                  void Linking.openSettings()
+            return
+          }
+
+          const enableAfterConsent = async () => {
+            const perm = await smsDetectionService.requestPermissions()
+            const snap = await refreshOsPermissionsSilently()
+            if (perm.ok && currentAccount) {
+              const nowIso = new Date().toISOString()
+              await updateSettings({
+                smsTransactionDetection: true,
+                compliance: {
+                  ...currentAccount.settings.compliance,
+                  smsDisclosureVersion: SMS_DISCLOSURE_VERSION,
+                  smsConsentGrantedAt: nowIso,
+                  smsConsentWithdrawnAt: null,
                 },
               })
-            } else {
-              showAppFeedback({
-                variant: 'warning',
-                title: 'Permission Required',
-                message: perm.reason || 'SMS read and receive permissions are required to detect transactions from M-PESA and banks.',
+              smsDetectionService.start(currentAccount.id, (pending, totalPending) => {
+                if (pending) setActiveSmsDetection({ detection: pending, queueCount: totalPending })
               })
+              void syncNativeSmsQueue()
+              webViewRef.current?.injectJavaScript(
+                `if (window.__stitchUpdateNotificationPerms) { window.__stitchUpdateNotificationPerms(${JSON.stringify(snap)}); } if(window.__stitchSetSmsToggleState){window.__stitchSetSmsToggleState(true);} true;`
+              )
+              showAppToast('Local SMS transaction detection enabled.', 'success')
+            } else {
+              await updateSettings({ smsTransactionDetection: false })
+              webViewRef.current?.injectJavaScript(
+                `if(window.__stitchSetSmsToggleState){window.__stitchSetSmsToggleState(false);} var t=document.getElementById('toggle-sms-detection'); if(t) t.checked=false; if(window.__stitchUpdateNotificationPerms){window.__stitchUpdateNotificationPerms(${JSON.stringify(snap)});} true;`
+              )
+              if (perm.neverAskAgain) {
+                showAppConfirm({
+                  variant: 'warning',
+                  title: 'SMS Permission Blocked',
+                  message: perm.reason || 'Open App Settings -> Permissions -> SMS to allow M-PESA & bank alert detection.',
+                  confirmLabel: 'Open Settings',
+                  cancelLabel: 'Cancel',
+                  onConfirm: () => {
+                    void Linking.openSettings()
+                  },
+                })
+              } else {
+                showAppFeedback({
+                  variant: 'warning',
+                  title: 'Permission Required',
+                  message: perm.reason || 'SMS read and receive permissions are required to detect transactions, or you can paste SMS text manually.',
+                })
+              }
             }
           }
+
+          webViewRef.current?.injectJavaScript(
+            `if(window.__stitchSetSmsToggleState){window.__stitchSetSmsToggleState(false);} var t=document.getElementById('toggle-sms-detection'); if(t) t.checked=false; true;`
+          )
+          showAppConfirm({
+            variant: 'info',
+            title: 'Allow Local SMS Transaction Parsing?',
+            message: 'XpenseTracker asks Android for READ_SMS and RECEIVE_SMS strictly to detect Kenyan M-PESA, Fuliza, and bank alerts locally on your device. Raw SMS inbox text is never uploaded or shared. You may decline and use Manual Paste instead.',
+            confirmLabel: 'I Consent & Continue',
+            cancelLabel: 'Decline',
+            onConfirm: () => { void enableAfterConsent() },
+          })
         } else {
           smsDetectionService.stop()
-          await updateSettings({ smsTransactionDetection: false })
-          showAppToast('SMS transaction detection paused.', 'info')
+          await withdrawSmsConsent()
+          showAppToast('SMS consent withdrawn & local SMS buffer cleared.', 'info')
         }
+        return
+      }
+
+      if (type === 'settings.tooltips.toggle') {
+        await updateSettings({
+          compliance: {
+            ...currentAccount?.settings.compliance,
+            helpTooltipsDisabled: Boolean(message.disabled),
+          },
+        })
+        showAppToast(Boolean(message.disabled) ? 'Helpful tooltips hidden.' : 'Helpful tooltips enabled.', 'info')
+        return
+      }
+
+      if (type === 'privacy.export' && currentAccount) {
+        const format = String(message.format || 'json') === 'csv' ? 'csv' : 'json'
+        const pkg = buildUserDataExportPackage({
+          account: currentAccount,
+          loanAgreements,
+          loanPayments,
+          consents: currentAccount.settings.compliance,
+        })
+        const content = format === 'csv' ? pkg.csvString : pkg.jsonString
+        try {
+          await Share.share({
+            title: `XpenseTracker Data Export (${format.toUpperCase()})`,
+            message: content,
+          })
+        } catch {
+          showAppFeedback({
+            variant: 'error',
+            title: 'Export Share Failed',
+            message: 'Could not open system share sheet on this device.',
+          })
+        }
+        return
+      }
+
+      if (type === 'privacy.sms.withdraw') {
+        smsDetectionService.stop()
+        await withdrawSmsConsent()
+        showAppToast('SMS consent withdrawn & local SMS cache cleared.', 'success')
+        return
+      }
+
+      if (type === 'privacy.request.submit') {
+        const reqType = String(message.requestType || 'rectification') as any
+        const details = String(message.details || '')
+        const res = await submitPrivacyRequest(reqType, details)
+        showAppFeedback({
+          variant: 'success',
+          title: 'Compliance Request Recorded',
+          message: res.message,
+        })
+        return
+      }
+
+      if (type === 'privacy.guardian.verify') {
+        const res = await verifyGuardianConsentCode(
+          String(message.token || ''),
+          String(message.guardianEmail || ''),
+          message.decision === 'revoked' ? 'revoked' : 'verified'
+        )
+        showAppFeedback({
+          variant: res.ok ? 'success' : 'error',
+          title: res.ok ? 'Guardian Verification Updated' : 'Verification Failed',
+          message: res.message,
+        })
         return
       }
 
@@ -1760,6 +1978,7 @@ function RootApp() {
                 showAppFeedback({ variant: 'error', title: 'Error', message: result.message })
               } else {
                 setAuthRoute('signin')
+                showAppToast('Account permanently deleted.', 'info', true)
               }
             }).catch(() => {
               showAppFeedback({
@@ -1816,19 +2035,10 @@ function RootApp() {
               isWebViewLoadedRef.current = false
               webModalOpenRef.current = false
               presentedSmsKeyRef.current = null
-              if (skeletonTimerRef.current) clearTimeout(skeletonTimerRef.current)
-              skeletonTimerRef.current = setTimeout(() => {
-                setShowSkeletonOverlay(true)
-              }, 170)
             }}
             onLoadEnd={() => {
               isWebViewLoadedRef.current = true
               setWebLoadTick((n) => n + 1)
-              if (skeletonTimerRef.current) {
-                clearTimeout(skeletonTimerRef.current)
-                skeletonTimerRef.current = null
-              }
-              setShowSkeletonOverlay(false)
               Animated.timing(fadeAnim, {
                 toValue: 1,
                 duration: resolvedAppearance.reducedMotion ? 0 : 75,
@@ -1839,6 +2049,19 @@ function RootApp() {
                 queuedWebScriptRef.current = null
                 webViewRef.current.injectJavaScript(`${pending} true;`)
               }
+            }}
+            onError={() => {
+              fadeAnim.setValue(1)
+            }}
+            onRenderProcessGone={() => {
+              isWebViewLoadedRef.current = false
+              fadeAnim.setValue(1)
+              webViewRef.current?.reload?.()
+            }}
+            onContentProcessDidTerminate={() => {
+              isWebViewLoadedRef.current = false
+              fadeAnim.setValue(1)
+              webViewRef.current?.reload?.()
             }}
             onMessage={(event: any) => {
               void handleMessage(event.nativeEvent.data)
@@ -1852,29 +2075,6 @@ function RootApp() {
             nestedScrollEnabled={true}
             overScrollMode="content"
           />
-          {showSkeletonOverlay && (
-            <View
-              pointerEvents="none"
-              style={[
-                StyleSheet.absoluteFill,
-                {
-                  backgroundColor: appBg,
-                  paddingTop: insets.top + 20,
-                  paddingHorizontal: 20,
-                  gap: 16,
-                },
-              ]}
-            >
-              <View style={{ height: 22, width: '48%', borderRadius: 10, backgroundColor: themeVars.tokens.surfaceContainerHigh }} />
-              <View style={{ height: 150, borderRadius: 24, backgroundColor: themeVars.tokens.surfaceContainer, borderWidth: 1, borderColor: themeVars.tokens.outlineVariant }} />
-              <View style={{ flexDirection: 'row', gap: 12 }}>
-                <View style={{ flex: 1, height: 92, borderRadius: 20, backgroundColor: themeVars.tokens.surfaceContainer }} />
-                <View style={{ flex: 1, height: 92, borderRadius: 20, backgroundColor: themeVars.tokens.surfaceContainer }} />
-              </View>
-              <View style={{ height: 70, borderRadius: 18, backgroundColor: themeVars.tokens.surfaceContainerLow }} />
-              <View style={{ height: 70, borderRadius: 18, backgroundColor: themeVars.tokens.surfaceContainerLow }} />
-            </View>
-          )}
         </Animated.View>
       </SafeAreaView>
 

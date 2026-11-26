@@ -189,7 +189,7 @@ export const notifications = `<!DOCTYPE html>
           </div>
           <div class="min-w-0">
             <h3 class="text-[15px] font-bold text-on-surface">Detect M-PESA &amp; Bank SMS</h3>
-            <p class="text-xs leading-5 text-on-surface-variant">Parse incoming &amp; outgoing mobile-money/bank SMS locally and ask how to record each amount. Raw SMS stays private on your device.</p>
+            <p class="text-xs leading-5 text-on-surface-variant">Parse incoming &amp; outgoing mobile-money/bank SMS locally on your device. Raw SMS inbox text is never uploaded or shared with third parties.</p>
           </div>
         </div>
         <label class="relative flex h-7 w-12 shrink-0 cursor-pointer items-center" for="toggle-sms-detection">
@@ -197,6 +197,15 @@ export const notifications = `<!DOCTYPE html>
           <span class="xp-switch-track absolute inset-0 rounded-full border border-outline-variant bg-surface-container-high transition-colors duration-200 peer-checked:border-primary peer-checked:bg-primary"></span>
           <span class="xp-switch-thumb pointer-events-none absolute left-[3px] top-[3px] h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 peer-checked:translate-x-5"></span>
         </label>
+      </div>
+      <div class="pt-3 border-t border-outline-variant/30 flex items-center justify-between gap-3">
+        <div class="min-w-0">
+          <p class="text-xs font-bold text-on-surface">Manual SMS Paste / Import</p>
+          <p class="text-[11px] text-on-surface-variant">Import M-PESA or Fuliza messages manually without granting SMS permissions.</p>
+        </div>
+        <button id="btn-manual-sms-import" type="button" class="shrink-0 px-3.5 py-2 rounded-xl bg-primary/10 text-primary text-xs font-bold hover:bg-primary/15">
+          Paste SMS
+        </button>
       </div>
     </div>
   </section>

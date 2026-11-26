@@ -4,30 +4,60 @@ export type TransactionChannel =
   | 'MPESA_SEND_MONEY'
   | 'MPESA_PAYBILL'
   | 'MPESA_BUY_GOODS'
+  | 'MPESA_POCHI'
   | 'MPESA_WITHDRAWAL'
   | 'MPESA_AIRTIME'
+  | 'MPESA_FULIZA_USAGE'
+  | 'MPESA_FULIZA_REPAYMENT'
   | 'BANK_TRANSFER'
   | 'PESALINK'
   | 'CARD_POS'
   | 'INCOMING_TRANSFER'
   | 'GENERIC_TRANSFER';
 
+export type ClassificationCategory =
+  | 'CONFIRMED_EXPENSE'
+  | 'CONFIRMED_INCOME'
+  | 'FULIZA_BORROWING'
+  | 'FULIZA_REPAYMENT'
+  | 'TRANSACTION_FEE'
+  | 'NEEDS_USER_REVIEW'
+  | 'UNSUPPORTED_MESSAGE';
+
 export type SuggestedTrigger =
   | 'PROMPT_OUTGOING'
   | 'PROMPT_INCOMING'
   | 'DEFAULT_EXPENSE'
   | 'PROMPT_EXPENSE_OR_LOAN'
+  | 'PROMPT_FULIZA_REVIEW'
   | 'IGNORE_INCOMING';
 
 export type SmsParseConfidence = 'high' | 'medium' | 'low';
+
+export interface FulizaDetails {
+  isFulizaInvolved: boolean;
+  fulizaAmount: number | null;
+  walletPortion: number | null;
+  fulizaAccessFee: number | null;
+  fulizaInterest: number | null;
+  outstandingFulizaBalance: number | null;
+  availableFulizaLimit: number | null;
+  isPartialRecovery?: boolean;
+  grossInflowAmount?: number | null;
+  netWalletImpact?: number | null;
+  correlatedPrimaryRef?: string;
+  correlatedSecondaryRef?: string;
+}
 
 export interface ParsedSmsTransaction {
   provider: 'MPESA' | 'BANK' | 'PESALINK';
   direction: TransactionDirection;
   channel: TransactionChannel;
+  classificationCategory: ClassificationCategory;
   amount: number;
   currency: string;
   transactionCost: number | null;
+  walletBalanceAfter?: number | null;
   referenceCode: string;
   recipient: string;
   counterpartyName: string;
@@ -38,9 +68,18 @@ export interface ParsedSmsTransaction {
   confidence: SmsParseConfidence;
   fingerprint: string;
   suggestedTrigger: SuggestedTrigger;
-  rawMessage: string;
+  rawMessage?: string;
   senderId?: string;
+  fulizaDetails?: FulizaDetails | null;
+  correlatedMessageIds?: string[];
+  correlatedFingerprints?: string[];
+  isAmbiguousMatch?: boolean;
 }
+
+export type SmsParseOutcome =
+  | { status: 'classified'; transaction: ParsedSmsTransaction }
+  | { status: 'needs_review'; reason: string; transaction?: ParsedSmsTransaction }
+  | { status: 'unsupported'; reason: string };
 
 export type PendingSmsStatus =
   | 'pending'
@@ -98,13 +137,6 @@ export const TRUSTED_KENYAN_SENDERS = new Set([
   'FAMILYBANK',
   'SIDIAN',
   'FULIZA',
-  'TIMIZA',
-  'TALA',
-  'BRANCH',
-  'HF',
-  'MSHWARI',
-  'M-SHWARI',
-  'AIRTEL',
-  'AIRTELMONEY',
-  'T-KASH',
+  'FULIZAMPESA',
+  'MPESAFULIZA',
 ]);

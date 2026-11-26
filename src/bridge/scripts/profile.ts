@@ -25,7 +25,10 @@ ${sharedScript()}
     var summaryNode = document.getElementById('profile-appearance-summary');
     var pillNode = document.getElementById('profile-style-pill');
     if (data.appearanceStyle) {
-      var styleName = data.appearanceStyle === 'material-expressive' ? 'Material 3' : 'Liquid Glass';
+      var rawStyle = String(data.appearanceStyle || '');
+      var isMaterial = rawStyle === 'material-expressive' || rawStyle === 'material' || rawStyle.indexOf('Material') !== -1;
+      var styleName = isMaterial ? 'Material 3 Expressive' : 'Liquid Glass';
+      var pillName = isMaterial ? 'Material 3' : 'Liquid Glass';
       var schemeName = data.appearanceScheme
         ? (data.appearanceScheme.charAt(0).toUpperCase() + data.appearanceScheme.slice(1))
         : 'System';
@@ -34,7 +37,7 @@ ${sharedScript()}
         : 'Concept';
       var pureBlackSuffix = data.appearancePureBlack ? ' · Pure Black' : '';
       if (summaryNode) summaryNode.textContent = styleName + ' · ' + schemeName + pureBlackSuffix + ' · ' + themeName;
-      if (pillNode) pillNode.textContent = styleName;
+      if (pillNode) pillNode.textContent = pillName;
     }
   } catch(e) { console.error('profile:appearance-summary', e); }
 

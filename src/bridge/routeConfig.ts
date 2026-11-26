@@ -20,6 +20,8 @@ import {
   recordPaymentScript,
 } from './scripts/lending'
 import { updateCenterScript } from './scripts/updateCenter'
+import { legalDocScript, parentalConsentScript, privacyDataCenterScript } from './scripts/compliance'
+import { buildCompliancePayload } from './payloads/compliance'
 import type { StitchRoute } from './routes'
 import { buildAddExpensePayload } from './payloads/addExpense'
 import { buildAnalyticsPayload } from './payloads/analytics'
@@ -58,6 +60,34 @@ const routeConfig: Record<StitchRoute, RouteConfig> = {
   signup: {
     html: stitchHtml.signUp,
     script: () => authScript('signup'),
+  },
+  forgotPassword: {
+    html: stitchHtml.forgotPassword,
+    script: () => authScript('forgotPassword'),
+  },
+  privacyPolicy: {
+    html: stitchHtml.privacyPolicy,
+    script: legalDocScript,
+    payload: (account, _params, lending) =>
+      buildCompliancePayload(account, lending?.agreements, lending?.payments),
+  },
+  termsOfService: {
+    html: stitchHtml.termsOfService,
+    script: legalDocScript,
+    payload: (account, _params, lending) =>
+      buildCompliancePayload(account, lending?.agreements, lending?.payments),
+  },
+  privacyDataCenter: {
+    html: stitchHtml.privacyDataCenter,
+    script: privacyDataCenterScript,
+    payload: (account, _params, lending) =>
+      buildCompliancePayload(account, lending?.agreements, lending?.payments),
+  },
+  parentalConsent: {
+    html: stitchHtml.parentalConsent,
+    script: parentalConsentScript,
+    payload: (account, _params, lending) =>
+      buildCompliancePayload(account, lending?.agreements, lending?.payments),
   },
   dashboard: {
     html: stitchHtml.dashboard,

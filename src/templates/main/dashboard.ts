@@ -424,20 +424,22 @@ export const dashboard = `<!DOCTYPE html>
             <div class="flex items-center gap-2 mb-1">
                 <span id="timezone-date-badge" class="text-xs font-medium text-white/85 tracking-wide">Loading date...</span>
             </div>
-            <h2 id="greeting-text" class="font-headline-md text-3xl md:text-4xl font-extrabold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]">
-                Welcome!
-            </h2>
-            <p id="hero-workspace-subtitle" class="text-sm text-white/85 font-medium mt-1 drop-shadow">Here is your spending overview</p>
+            <div class="w-1/2 max-w-[50%]">
+                <h2 id="greeting-text" class="font-headline-md text-2xl sm:text-3xl md:text-4xl font-extrabold leading-tight text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)] break-words">
+                    Welcome!
+                </h2>
+                <p id="hero-workspace-subtitle" class="text-xs sm:text-sm text-white/85 font-medium mt-1 drop-shadow">Here is your spending overview</p>
+            </div>
         </div>
 
         <!-- THEME-AWARE CUSTOM WORKSPACE DROPDOWN -->
         <div class="mt-3 flex flex-wrap items-center gap-2.5">
-            <button id="workspace-dropdown-btn" type="button" onclick="openWorkspaceDropdown()" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-white/18 hover:bg-white/25 backdrop-blur-md border border-white/25 text-white text-xs font-bold shadow-sm transition-all active:scale-95">
+            <button id="workspace-dropdown-btn" type="button" onclick="openWorkspaceDropdown()" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-white/20 hover:bg-white/25 backdrop-blur-md border border-white/25 text-white text-xs font-bold shadow-sm transition-all active:scale-95">
                 <span id="workspace-dropdown-icon" class="material-symbols-outlined text-[17px] text-emerald-300">payments</span>
                 <span id="workspace-dropdown-label">Expenses &amp; Budget</span>
                 <span class="material-symbols-outlined text-[17px] text-white/80">keyboard_arrow_down</span>
             </button>
-            <button id="hero-lending-hub-link" type="button" onclick="window.__stitchPost({type:'navigate',route:'lendingDashboard'})" class="hidden inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-white/12 hover:bg-white/20 backdrop-blur-md border border-white/20 text-white/90 text-xs font-semibold transition-all active:scale-95">
+            <button id="hero-lending-hub-link" type="button" onclick="window.__stitchPost({type:'navigate',route:'lendingDashboard'})" class="hidden inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md border border-white/20 text-white/95 text-xs font-semibold transition-all active:scale-95">
                 <span>Full Lending Hub</span>
                 <span class="material-symbols-outlined text-[15px]">arrow_forward</span>
             </button>
@@ -545,13 +547,13 @@ export const dashboard = `<!DOCTYPE html>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-            <section id="category-breakdown-section" class="bg-surface-container-lowest rounded-[24px] p-card-padding border border-outline-variant/30 shadow-sm">
-                <div class="flex justify-between items-center mb-4">
+            <section id="category-breakdown-section" class="theme-card bg-surface-container-lowest rounded-[24px] p-card-padding border border-outline-variant/40 shadow-sm">
+                <div class="flex justify-between items-center gap-3 mb-4">
                     <div>
                         <h2 id="category-section-title" class="font-title-lg text-lg font-bold text-on-surface">Category Breakdown</h2>
-                        <p class="text-[11px] text-on-surface-variant">Distribution of expenditures</p>
+                        <p class="text-[11px] text-on-surface-variant">Distribution of this month's spending</p>
                     </div>
-                    <span class="text-[11px] font-bold uppercase tracking-[0.14em] text-primary bg-primary/10 px-2.5 py-1 rounded-full">This month</span>
+                    <button type="button" onclick="switchRoute('analytics')" class="text-[11px] font-bold uppercase tracking-[0.12em] bg-[var(--primary-container)] text-[var(--on-primary-container)] px-3 py-1 rounded-full active:scale-95 transition-transform">This month</button>
                 </div>
                 <div id="category-breakdown-list" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
             </section>
@@ -562,7 +564,7 @@ export const dashboard = `<!DOCTYPE html>
                         <h2 class="font-title-lg text-lg font-bold text-on-surface">Recent Activity</h2>
                         <p class="text-[11px] text-on-surface-variant">Latest transactions</p>
                     </div>
-                    <button id="show-all-history" onclick="switchRoute('transactions')" class="text-primary font-label-sm text-xs font-bold hover:underline flex items-center gap-1 bg-primary/10 px-3 py-1.5 rounded-full active:scale-95 transition-transform">
+                    <button id="show-all-history" onclick="switchRoute('transactions')" class="font-label-sm text-xs font-bold flex items-center gap-1 bg-[var(--primary-container)] text-[var(--on-primary-container)] px-3 py-1.5 rounded-full active:scale-95 transition-transform">
                         <span>Show history</span>
                         <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
                     </button>
@@ -601,43 +603,43 @@ export const dashboard = `<!DOCTYPE html>
             </section>
 
             <div class="grid grid-cols-2 md:grid-cols-1 gap-4">
-                <div class="bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant/30 shadow-sm flex flex-col justify-between">
+                <div class="theme-card bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant/30 shadow-sm flex flex-col justify-between">
                     <div>
                         <div class="flex items-center justify-between mb-2">
-                            <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/12 text-emerald-700 dark:text-emerald-300">Casual</span>
+                            <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">Casual</span>
                             <span id="lending-casual-count" class="text-xs font-extrabold text-on-surface">0</span>
                         </div>
                         <p class="text-xs text-on-surface-variant">Informal 0% peer &amp; family loans</p>
                     </div>
                     <div class="flex gap-2 mt-3">
-                        <button type="button" onclick="window.__stitchPost({type:'navigate',route:'createAgreement',params:{direction:'lent',origin:'casual',modeLocked:'true'}})" class="flex-1 py-2 px-2 rounded-xl bg-emerald-500/12 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold active:scale-95 transition-transform">Lend</button>
-                        <button type="button" onclick="window.__stitchPost({type:'navigate',route:'createAgreement',params:{direction:'borrowed',origin:'casual',modeLocked:'true'}})" class="flex-1 py-2 px-2 rounded-xl bg-amber-500/12 text-amber-700 dark:text-amber-300 text-[11px] font-bold active:scale-95 transition-transform">Borrow</button>
+                        <button type="button" onclick="window.__stitchPost({type:'navigate',route:'createAgreement',params:{direction:'lent',origin:'casual',modeLocked:'true'}})" class="flex-1 py-2 px-2 rounded-xl bg-emerald-500/15 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold active:scale-95 transition-transform">Lend</button>
+                        <button type="button" onclick="window.__stitchPost({type:'navigate',route:'createAgreement',params:{direction:'borrowed',origin:'casual',modeLocked:'true'}})" class="flex-1 py-2 px-2 rounded-xl bg-amber-500/15 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[11px] font-bold active:scale-95 transition-transform">Borrow</button>
                     </div>
                 </div>
 
-                <div class="bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant/30 shadow-sm flex flex-col justify-between">
+                <div class="theme-card bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant/30 shadow-sm flex flex-col justify-between">
                     <div>
                         <div class="flex items-center justify-between mb-2">
-                            <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/12 text-indigo-700 dark:text-indigo-300">Loan Agreements</span>
+                            <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-700 dark:text-indigo-300">Loan Agreements</span>
                             <span id="lending-formal-count" class="text-xs font-extrabold text-on-surface">0</span>
                         </div>
                         <p class="text-xs text-on-surface-variant">Formal percentage &amp; penalty terms</p>
                     </div>
                     <div class="flex gap-2 mt-3">
-                        <button type="button" onclick="window.__stitchPost({type:'navigate',route:'createAgreement',params:{direction:'lent',origin:'formal',modeLocked:'true'}})" class="flex-1 py-2 px-2 rounded-xl bg-indigo-500/12 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold active:scale-95 transition-transform">Lend</button>
-                        <button type="button" onclick="window.__stitchPost({type:'navigate',route:'createAgreement',params:{direction:'borrowed',origin:'formal',modeLocked:'true'}})" class="flex-1 py-2 px-2 rounded-xl bg-rose-500/12 text-rose-700 dark:text-rose-300 text-[11px] font-bold active:scale-95 transition-transform">Borrow</button>
+                        <button type="button" onclick="window.__stitchPost({type:'navigate',route:'createAgreement',params:{direction:'lent',origin:'formal',modeLocked:'true'}})" class="flex-1 py-2 px-2 rounded-xl bg-indigo-500/15 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold active:scale-95 transition-transform">Lend</button>
+                        <button type="button" onclick="window.__stitchPost({type:'navigate',route:'createAgreement',params:{direction:'borrowed',origin:'formal',modeLocked:'true'}})" class="flex-1 py-2 px-2 rounded-xl bg-rose-500/15 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300 text-[11px] font-bold active:scale-95 transition-transform">Borrow</button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <section class="bg-surface-container-lowest rounded-[24px] p-card-padding border border-outline-variant/30 shadow-sm mb-6">
-            <div class="flex justify-between items-center mb-4">
+        <section class="theme-card bg-surface-container-lowest rounded-[24px] p-card-padding border border-outline-variant/40 shadow-sm mb-6">
+            <div class="flex justify-between items-center gap-3 mb-4">
                 <div>
                     <h2 class="font-title-lg text-lg font-bold text-on-surface">Active Obligations</h2>
                     <p class="text-[11px] text-on-surface-variant">Recent casual &amp; institutional agreements</p>
                 </div>
-                <button type="button" onclick="window.__stitchPost({type:'navigate',route:'lendingAgreements'})" class="text-primary font-label-sm text-xs font-bold flex items-center gap-1 bg-primary/10 px-3 py-1.5 rounded-full active:scale-95 transition-transform">
+                <button type="button" onclick="window.__stitchPost({type:'navigate',route:'lendingAgreements'})" class="font-label-sm text-xs font-bold flex items-center gap-1 bg-[var(--primary-container)] text-[var(--on-primary-container)] px-3 py-1.5 rounded-full active:scale-95 transition-transform">
                     <span>See All</span>
                     <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
                 </button>
@@ -1005,7 +1007,7 @@ export const dashboard = `<!DOCTYPE html>
             const items = Array.isArray(stats.recentAgreements) ? stats.recentAgreements : [];
             if (items.length === 0) {
                 listEl.innerHTML = \`
-                    <div class="py-8 px-4 text-center border border-dashed border-outline-variant/50 rounded-2xl bg-surface-container-low/50">
+                    <div class="py-8 px-4 text-center border border-dashed border-outline-variant rounded-2xl bg-surface-container-low">
                         <span class="material-symbols-outlined text-3xl text-outline mb-1 opacity-70">handshake</span>
                         <p class="text-xs font-bold text-on-surface">No active casual loans or agreements</p>
                         <p class="text-[11px] text-on-surface-variant mt-0.5">Record casual peer loans or institutional loan agreements above.</p>
@@ -1017,18 +1019,26 @@ export const dashboard = `<!DOCTYPE html>
                 const isCasual = ag.agreementCategory === 'casual';
                 const modeLabel = isCasual ? (ag.relationship || 'Casual') : 'Loan Agreement';
                 const dirText = ag.direction === 'lent' ? 'Lent' : 'Borrowed';
+                const dirBadgeStyle = ag.direction === 'lent'
+                    ? 'background-color: var(--fin-income-bg); color: var(--fin-income);'
+                    : 'background-color: var(--fin-expense-bg); color: var(--fin-expense);';
                 return \`
-                    <button type="button" onclick="window.__stitchPost({type:'navigate',route:'agreementDetails',params:{agreementId:'\${ag.id}',origin:'\${ag.agreementCategory}'}})" class="w-full text-left flex items-center justify-between p-3.5 bg-surface-container-low/70 rounded-2xl border border-outline-variant/30 hover:shadow-sm active:scale-[0.99] transition-all">
-                        <div class="min-w-0 pr-3">
-                            <div class="flex items-center gap-1.5 flex-wrap">
-                                <p class="text-xs font-bold text-on-surface truncate">\${ag.counterparty || 'Unknown'}</p>
-                                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">\${modeLabel}</span>
+                    <button type="button" onclick="window.__stitchPost({type:'navigate',route:'agreementDetails',params:{id:'\${ag.id}',origin:'\${ag.agreementCategory}'}})" class="w-full text-left flex items-center justify-between gap-3 p-3.5 bg-surface-container-low rounded-2xl border border-outline-variant hover:shadow-sm active:scale-[0.99] transition-all">
+                        <div class="flex items-center gap-3 min-w-0 flex-1">
+                            <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style="\${dirBadgeStyle}">
+                                <span class="material-symbols-outlined text-[18px]">\${ag.direction === 'lent' ? 'arrow_outward' : 'call_received'}</span>
                             </div>
-                            <p class="text-[10px] text-on-surface-variant mt-0.5">\${dirText} • Due \${ag.dueDateFormatted || '—'}</p>
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center gap-1.5 flex-wrap">
+                                    <p class="text-xs font-bold text-on-surface truncate">\${ag.counterparty || 'Unknown'}</p>
+                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--primary-container)] text-[var(--on-primary-container)]">\${modeLabel}</span>
+                                </div>
+                                <p class="text-[10px] text-on-surface-variant mt-0.5">\${dirText} • Due \${ag.dueDateFormatted || '—'}</p>
+                            </div>
                         </div>
                         <div class="text-right shrink-0">
                             <p class="text-xs font-extrabold text-on-surface">\${ag.remainingFormatted || 'KSh 0'}</p>
-                            <span class="text-[10px] font-bold \${ag.statusText || 'text-emerald-600'}">\${ag.statusLabel || 'Active'}</span>
+                            <span class="inline-block mt-0.5 text-[10px] font-bold \${ag.statusText || 'text-emerald-600 dark:text-emerald-400'}">\${ag.statusLabel || 'Active'}</span>
                         </div>
                     </button>
                 \`;
@@ -1109,6 +1119,38 @@ export const dashboard = `<!DOCTYPE html>
     }
     window.selectWorkspace = selectWorkspace;
 
+    function getAdaptiveCategoryColors(hexColor, fallbackBg, fallbackFg) {
+        const isDark = document.documentElement.classList.contains('dark');
+        const clean = String(hexColor || '').replace('#', '').trim();
+        if (!/^[0-9a-fA-F]{6}$/.test(clean)) {
+            if (!isDark) return { bg: fallbackBg || '#f1f5f9', fg: fallbackFg || '#1e293b', bar: fallbackFg || '#4c56af' };
+            return { bg: 'rgba(148, 163, 184, 0.2)', fg: '#cbd5e1', bar: 'var(--action-primary, #93c5fd)' };
+        }
+        let r = parseInt(clean.slice(0, 2), 16);
+        let g = parseInt(clean.slice(2, 4), 16);
+        let b = parseInt(clean.slice(4, 6), 16);
+        if (!isDark) {
+            return {
+                bg: \`rgba(\${r}, \${g}, \${b}, 0.14)\`,
+                fg: \`#\${clean}\`,
+                bar: \`#\${clean}\`
+            };
+        }
+        const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+        if (lum < 0.56) {
+            const lift = Math.min(0.74, Math.max(0.42, 0.72 - lum));
+            r = Math.round(r + (255 - r) * lift);
+            g = Math.round(g + (255 - g) * lift);
+            b = Math.round(b + (255 - b) * lift);
+        }
+        const brightHex = '#' + [r, g, b].map(function(v) { return Math.min(255, Math.max(0, v)).toString(16).padStart(2, '0'); }).join('');
+        return {
+            bg: \`rgba(\${r}, \${g}, \${b}, 0.22)\`,
+            fg: brightHex,
+            bar: brightHex
+        };
+    }
+
     function renderCategoryBreakdown(categories) {
         const breakdownContainer = document.getElementById('category-breakdown-list');
         if (!breakdownContainer) return;
@@ -1116,10 +1158,10 @@ export const dashboard = `<!DOCTYPE html>
         if (!categories || categories.length === 0) {
             breakdownContainer.className = 'col-span-full';
             breakdownContainer.innerHTML = \`
-                <div class="col-span-full py-8 px-4 text-center border border-dashed border-outline-variant/40 rounded-2xl bg-surface-container-low/50">
+                <div class="col-span-full py-8 px-4 text-center border border-dashed border-outline-variant rounded-2xl bg-surface-container-low">
                     <span class="material-symbols-outlined text-3xl text-outline mb-1 opacity-70">pie_chart</span>
-                    <p class="text-xs font-bold text-on-surface">No expenses recorded yet</p>
-                    <p class="text-[11px] text-outline mt-0.5">Your category distribution will appear here as you log expenses.</p>
+                    <p class="text-xs font-bold text-on-surface">No expenses recorded this month</p>
+                    <p class="text-[11px] text-on-surface-variant mt-0.5">Your category distribution will appear here as you log expenses.</p>
                 </div>
             \`;
             return;
@@ -1128,12 +1170,15 @@ export const dashboard = `<!DOCTYPE html>
         breakdownContainer.className = 'grid grid-cols-1 sm:grid-cols-2 gap-3';
         let html = '';
         categories.forEach(cat => {
-            const bgStyle = cat.background ? \`background-color: \${cat.background}; color: \${cat.foreground};\` : 'background-color: #f1f5f9; color: #1e293b;';
-            const barBg = cat.foreground || '#4c56af';
+            const palette = getAdaptiveCategoryColors(cat.color || cat.foreground, cat.background, cat.foreground);
+            const bgStyle = \`background-color: \${palette.bg}; color: \${palette.fg}; border-color: \${palette.fg}26;\`;
+            const txLabel = typeof cat.txCount === 'number' && cat.txCount > 0
+                ? \` · \${cat.txCount} \${cat.txCount === 1 ? 'txn' : 'txns'}\`
+                : '';
             html += \`
-                <div class="bg-surface-container-low/70 rounded-2xl p-3.5 border border-outline-variant/30 flex flex-col justify-between hover:shadow-sm transition-all">
+                <div class="bg-surface-container-low rounded-2xl p-3.5 border border-outline-variant flex flex-col justify-between hover:shadow-sm transition-all">
                     <div class="flex items-center justify-between mb-2">
-                        <div class="w-8 h-8 rounded-xl flex items-center justify-center border border-black/5 shadow-2xs" style="\${bgStyle}">
+                        <div class="w-8 h-8 rounded-xl flex items-center justify-center border shadow-2xs" style="\${bgStyle}">
                             <span class="material-symbols-outlined text-[18px]">\${cat.icon || 'category'}</span>
                         </div>
                         <span class="text-xs font-bold text-on-surface-variant">\${cat.percent}%</span>
@@ -1141,9 +1186,10 @@ export const dashboard = `<!DOCTYPE html>
                     <div>
                         <p class="text-xs font-bold text-on-surface truncate">\${cat.name}</p>
                         <p class="text-sm font-extrabold text-on-surface mt-0.5">\${cat.amount}</p>
+                        <p class="text-[10px] text-on-surface-variant mt-0.5">\${cat.percent}% of spend\${txLabel}</p>
                     </div>
-                    <div class="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden mt-2.5">
-                        <div class="h-full rounded-full transition-all duration-500" style="width: \${cat.percent}%; background-color: \${barBg}"></div>
+                    <div class="w-full h-1.5 rounded-full overflow-hidden mt-2.5" style="background-color: var(--surface-container-high, #e2e8e2);">
+                        <div class="h-full rounded-full transition-all duration-500" style="width: \${Math.max(cat.percent, 3)}%; background-color: \${palette.bar}"></div>
                     </div>
                 </div>
             \`;
@@ -1157,7 +1203,7 @@ export const dashboard = `<!DOCTYPE html>
 
         if (!transactions || transactions.length === 0) {
             listContainer.innerHTML = \`
-                <div class="py-8 px-4 text-center border border-dashed border-outline-variant/40 rounded-2xl bg-surface-container-lowest shadow-2xs">
+                <div class="py-8 px-4 text-center border border-dashed border-outline-variant rounded-2xl bg-surface-container-lowest shadow-2xs">
                     <span class="material-symbols-outlined text-3xl text-outline mb-1 opacity-70">receipt_long</span>
                     <p class="text-xs font-bold text-on-surface">No recent activity</p>
                     <p class="text-[11px] text-outline mt-0.5">Your recorded transactions will show up here.</p>
@@ -1174,10 +1220,11 @@ export const dashboard = `<!DOCTYPE html>
         transactions.forEach(tx => {
             const isExpense = tx.kind === 'expense';
             const amountClass = isExpense ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400';
-            const bgStyle = tx.background ? \`background-color: \${tx.background}; color: \${tx.foreground};\` : 'background-color: #f1f5f9; color: #1e293b;';
+            const palette = getAdaptiveCategoryColors(tx.foreground, tx.background, tx.foreground);
+            const bgStyle = \`background-color: \${palette.bg}; color: \${palette.fg};\`;
 
             html += \`
-                <div class="flex items-center justify-between p-3.5 bg-surface-container-lowest rounded-2xl border border-outline-variant/30 shadow-2xs hover:shadow-sm transition-all">
+                <div class="flex items-center justify-between p-3.5 bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-2xs hover:shadow-sm transition-all">
                     <div class="flex items-center gap-3 min-w-0">
                         <div class="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-2xs" style="\${bgStyle}">
                             <span class="material-symbols-outlined text-[20px]">\${tx.icon || 'receipt'}</span>
@@ -1352,6 +1399,13 @@ export const dashboard = `<!DOCTYPE html>
         document.addEventListener('xpense:theme-changed', function() {
             currentReportedStatusStyle = null;
             updateScrollState();
+            if (state.serverData) {
+                if (state.currentWorkspace === 'lending' && state.serverData.lendingEnabled !== false) {
+                    renderLendingView(state.serverData);
+                } else {
+                    renderExpensesView(state.serverData);
+                }
+            }
         });
         updateScrollState();
     }
@@ -1452,7 +1506,7 @@ export const dashboard = `<!DOCTYPE html>
                             <p class="text-xs font-bold text-on-surface">\${tx.title}</p>
                             <p class="text-[10px] text-on-surface-variant">\${tx.subtitle}</p>
                         </div>
-                        <p class="text-xs font-bold \${tx.kind === 'expense' ? 'text-rose-600' : 'text-emerald-600'}">\${tx.amount}</p>
+                        <p class="text-xs font-bold \${tx.kind === 'expense' ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}">\${tx.amount}</p>
                     </div>
                 \`).join('');
             }

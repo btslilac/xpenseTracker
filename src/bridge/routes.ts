@@ -1,6 +1,11 @@
 export type StitchRoute =
   | 'signin'
   | 'signup'
+  | 'forgotPassword'
+  | 'privacyPolicy'
+  | 'termsOfService'
+  | 'privacyDataCenter'
+  | 'parentalConsent'
   | 'dashboard'
   | 'transactions'
   | 'analytics'

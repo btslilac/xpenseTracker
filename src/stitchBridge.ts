@@ -32,6 +32,7 @@ export function buildStitchHtml(
     fullName: account?.settings.fullName ?? '',
     email: account?.settings.email ?? '',
     avatarUrl: resolveAvatarUrl(account),
+    helpTooltipsDisabled: Boolean(account?.settings.compliance?.helpTooltipsDisabled),
     routeParams: params ?? {},
     ...(routePayload ?? {}),
   }

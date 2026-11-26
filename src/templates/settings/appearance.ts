@@ -518,6 +518,19 @@ export const appearance = `<!DOCTYPE html>
             <span class="material-symbols-outlined text-[var(--text-muted)] text-[20px]">chevron_right</span>
           </button>
 
+          <button type="button" data-stitch-route="privacyDataCenter" class="m3-group-row">
+            <div class="flex items-center gap-3.5 min-w-0 flex-1">
+              <div class="m3-icon-tile tile-blue">
+                <span class="material-symbols-outlined text-[21px]">shield_person</span>
+              </div>
+              <div class="min-w-0 flex-1">
+                <p class="text-[14px] font-bold leading-tight">Privacy &amp; Data Center</p>
+                <p class="text-xs text-[var(--text-secondary)] mt-0.5">Export data, consents &amp; delete account</p>
+              </div>
+            </div>
+            <span class="material-symbols-outlined text-[var(--text-muted)] text-[20px]">chevron_right</span>
+          </button>
+
           <button type="button" data-stitch-route="helpSupport" class="m3-group-row">
             <div class="flex items-center gap-3.5 min-w-0 flex-1">
               <div class="m3-icon-tile tile-neutral">

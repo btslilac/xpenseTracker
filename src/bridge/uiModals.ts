@@ -1139,19 +1139,73 @@ export function getUiModalsScript(): string {
       var amountNum = Number(parsed.amount || 0);
       var amountFormatted = displayCurr + ' ' + amountNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       var direction = parsed.direction || 'UNKNOWN';
-      var isIncoming = direction === 'INCOMING';
-      var isOutgoing = direction === 'OUTGOING';
+      var classCat = parsed.classificationCategory || '';
+      var fuliza = parsed.fulizaDetails || null;
+      var isFulizaBorrow = classCat === 'FULIZA_BORROWING';
+      var isFulizaRepay = classCat === 'FULIZA_REPAYMENT';
+      var isIncoming = direction === 'INCOMING' && !isFulizaBorrow && !isFulizaRepay;
+      var isOutgoing = (direction === 'OUTGOING' || isFulizaBorrow) && !isFulizaRepay;
       var counterparty = parsed.counterpartyName || parsed.recipient || parsed.senderId || 'Unknown';
       var refCode = parsed.referenceCode || '';
       var channelLabel = (parsed.provider || 'SMS') + (parsed.channel ? ' • ' + String(parsed.channel).replace(/_/g, ' ') : '');
       var timeText = parsed.smsTimestamp ? new Date(parsed.smsTimestamp).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
 
-      var dirBadgeBg = isIncoming ? 'rgba(16, 185, 129, 0.14)' : isOutgoing ? 'rgba(244, 63, 94, 0.14)' : 'rgba(245, 158, 11, 0.14)';
-      var dirBadgeText = isIncoming ? '#059669' : isOutgoing ? '#e11d48' : '#b45309';
-      var dirBadgeLabel = isIncoming ? 'Incoming Money' : isOutgoing ? 'Outgoing Payment' : 'Review Transaction';
+      var dirBadgeBg = isFulizaBorrow
+        ? 'rgba(245, 158, 11, 0.16)'
+        : isFulizaRepay
+          ? 'rgba(79, 70, 229, 0.14)'
+          : isIncoming
+            ? 'rgba(16, 185, 129, 0.14)'
+            : isOutgoing
+              ? 'rgba(244, 63, 94, 0.14)'
+              : 'rgba(245, 158, 11, 0.14)';
+      var dirBadgeText = isFulizaBorrow
+        ? '#b45309'
+        : isFulizaRepay
+          ? '#4f46e5'
+          : isIncoming
+            ? '#059669'
+            : isOutgoing
+              ? '#e11d48'
+              : '#b45309';
+      var dirBadgeLabel = isFulizaBorrow
+        ? 'Fuliza Overdraft Used'
+        : isFulizaRepay
+          ? (fuliza && fuliza.isPartialRecovery ? 'Fuliza Partial Recovery' : 'Fuliza Repayment')
+          : isIncoming
+            ? (fuliza && fuliza.isFulizaInvolved ? 'Income + Fuliza Recovery' : 'Incoming Money')
+            : isOutgoing
+              ? (fuliza && fuliza.isFulizaInvolved ? 'Expense (Wallet + Fuliza)' : 'Outgoing Payment')
+              : 'Review Transaction';
       var queuePill = queueCount > 1
         ? '<span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--primary-container);color:var(--on-primary-container);">1 of ' + queueCount + ' pending</span>'
         : '';
+
+      function fmtCur(v) {
+        return displayCurr + ' ' + Number(v || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+
+      var fulizaBreakdownHtml = '';
+      if (fuliza && fuliza.isFulizaInvolved) {
+        var rows = [];
+        if (isIncoming && fuliza.grossInflowAmount != null) {
+          rows.push('<div>Gross Received: <strong>' + escapeHtml(fmtCur(fuliza.grossInflowAmount)) + '</strong></div>');
+          if (fuliza.fulizaAmount != null) rows.push('<div>Auto-recovered to Fuliza: <strong>-' + escapeHtml(fmtCur(fuliza.fulizaAmount)) + '</strong></div>');
+          if (fuliza.netWalletImpact != null) rows.push('<div>Net Wallet Gain: <strong>' + escapeHtml(fmtCur(fuliza.netWalletImpact)) + '</strong></div>');
+        } else if (isOutgoing && !isFulizaBorrow) {
+          if (fuliza.walletPortion != null) rows.push('<div>M-PESA Wallet Portion: <strong>' + escapeHtml(fmtCur(fuliza.walletPortion)) + '</strong></div>');
+          if (fuliza.fulizaAmount != null) rows.push('<div>Fuliza Overdraft Covered: <strong>' + escapeHtml(fmtCur(fuliza.fulizaAmount)) + '</strong></div>');
+        }
+        if (fuliza.fulizaAccessFee != null) rows.push('<div>Fuliza Access Fee: <strong>' + escapeHtml(fmtCur(fuliza.fulizaAccessFee)) + '</strong></div>');
+        if (fuliza.fulizaInterest != null) rows.push('<div>Fuliza Interest / Fee: <strong>' + escapeHtml(fmtCur(fuliza.fulizaInterest)) + '</strong></div>');
+        if (fuliza.outstandingFulizaBalance != null) rows.push('<div>Fuliza Balance Remaining: <strong>' + escapeHtml(fmtCur(fuliza.outstandingFulizaBalance)) + '</strong></div>');
+        if (rows.length > 0) {
+          fulizaBreakdownHtml =
+            '<div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border-subtle);font-size:12px;color:var(--text-secondary);display:grid;gap:3px;">' +
+            rows.join('') +
+            '</div>';
+        }
+      }
 
       var shell = createModalShell({ sheet: true, dismissible: false });
       var card = document.createElement('div');
@@ -1165,7 +1219,7 @@ export function getUiModalsScript(): string {
               (parsed.confidence === 'low' ? '<span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;background:rgba(245,158,11,0.14);color:#b45309;">Confirm Category</span>' : '') +
               queuePill +
             '</div>' +
-            '<h3 class="stitch-modal-title">' + (isIncoming ? 'Money Received' : isOutgoing ? 'Transaction Detected' : 'Clarify SMS Transaction') + '</h3>' +
+            '<h3 class="stitch-modal-title">' + (isFulizaBorrow ? 'Fuliza Overdraft Detected' : isFulizaRepay ? 'Fuliza Auto-Repayment' : isIncoming ? 'Money Received' : isOutgoing ? 'Transaction Detected' : 'Clarify SMS Transaction') + '</h3>' +
             '<p class="stitch-modal-sub">' + escapeHtml(channelLabel) + (timeText ? ' • ' + escapeHtml(timeText) : '') + '</p>' +
           '</div>' +
         '</div>' +
@@ -1173,9 +1227,10 @@ export function getUiModalsScript(): string {
           '<div style="padding:14px 16px;border-radius:18px;border:1px solid var(--border-subtle);background:var(--surface-container-low);margin-bottom:14px;">' +
             '<div style="font-size:24px;font-weight:900;letter-spacing:-0.02em;color:var(--text-primary);">' + escapeHtml(amountFormatted) + '</div>' +
             '<div style="margin-top:6px;font-size:12.5px;color:var(--text-secondary);display:flex;flex-wrap:wrap;gap:6px 14px;">' +
-              '<span><strong>' + (isIncoming ? 'From:' : 'To:') + '</strong> ' + escapeHtml(counterparty) + '</span>' +
+              '<span><strong>' + (isIncoming ? 'From:' : 'To / Facility:') + '</strong> ' + escapeHtml(counterparty) + '</span>' +
               (refCode ? '<span><strong>Ref:</strong> ' + escapeHtml(refCode) + '</span>' : '') +
             '</div>' +
+            fulizaBreakdownHtml +
           '</div>' +
           '<p style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 8px;">How should XpenseTracker record this?</p>' +
           '<div class="xp-sheet-list" style="padding:0;" data-sms-options></div>' +
@@ -1302,7 +1357,7 @@ export function getUiModalsScript(): string {
         });
       }
 
-      if (isIncoming || direction === 'UNKNOWN') {
+      if ((isIncoming && !isFulizaRepay) || (direction === 'UNKNOWN' && !isFulizaRepay)) {
         addOptionButton({
           icon: 'south_west',
           tone: 'success',
@@ -1412,6 +1467,40 @@ export function getUiModalsScript(): string {
       return shell.close;
     };
 
+    // ── Manual / Paste M-PESA & Bank SMS Import Modal (Play-Compliant Alternative) ──
+    window.__stitchManualSmsImportModal = function() {
+      var shell = createModalShell({ sheet: true });
+      var card = document.createElement('div');
+      card.className = 'stitch-modal-card';
+      card.innerHTML =
+        '<div class="stitch-modal-handle"></div>' +
+        '<div class="stitch-modal-header">' +
+          '<div class="stitch-modal-badge tone-info"><span class="material-symbols-outlined">content_paste_go</span></div>' +
+          '<div><h3 class="stitch-modal-title">Import M-PESA / Bank SMS Text</h3><p class="stitch-modal-sub">Paste one or more transaction messages below. Parsed strictly on your device—no SMS permissions needed.</p></div>' +
+        '</div>' +
+        '<div class="stitch-modal-body">' +
+          '<textarea id="xp-manual-sms-input" rows="5" placeholder="e.g. UA10XYZ901 Confirmed. Ksh 1,500.00 paid to NAIVAS SUPERMARKET on 26/11/26 at 10:15 AM..." style="width:100%;border-radius:14px;border:1.5px solid var(--border-subtle);background:var(--surface-container-low);color:var(--text-primary);padding:12px;font-size:13px;outline:none;resize:vertical;"></textarea>' +
+          '<p style="margin:8px 0 0;font-size:11.5px;color:var(--text-secondary);">Supports M-PESA Paybill, Till, Send Money, Pochi, Fuliza split &amp; recovery, and PesaLink/Bank SMS.</p>' +
+        '</div>' +
+        '<div class="stitch-modal-footer">' +
+          '<button type="button" class="stitch-btn stitch-btn-secondary" data-manual-cancel>Cancel</button>' +
+          '<button type="button" class="stitch-btn stitch-btn-primary" data-manual-parse>Parse &amp; Review</button>' +
+        '</div>';
+      shell.backdrop.appendChild(card);
+      card.querySelector('[data-manual-cancel]').addEventListener('click', function() { shell.close(true); });
+      card.querySelector('[data-manual-parse]').addEventListener('click', function() {
+        var ta = card.querySelector('#xp-manual-sms-input');
+        var rawText = (ta && ta.value || '').trim();
+        if (!rawText) {
+          window.__stitchToast && window.__stitchToast('Paste an M-PESA or bank message first.', 'warning');
+          return;
+        }
+        shell.close(false);
+        postBridge({ type: 'sms.manual.import', rawText: rawText });
+      });
+      return shell.close;
+    };
+
     window.__stitchUI = {
       feedback: window.__stitchFeedback,
       alert: window.__stitchAlert,
@@ -1423,6 +1512,7 @@ export function getUiModalsScript(): string {
       toast: window.__stitchToast,
       penaltyModal: window.__stitchPenaltyModal,
       smsClassification: window.__stitchSmsClassification,
+      manualSmsImport: window.__stitchManualSmsImportModal,
       enhanceSelects: window.__stitchEnhanceSelects,
       syncSelectUI: window.__stitchSyncSelectUI,
       createModalShell: createModalShell,

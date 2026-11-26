@@ -1,5 +1,6 @@
 import { signUp } from './templates/auth/signUp'
 import { signIn } from './templates/auth/signIn'
+import { forgotPassword } from './templates/auth/forgotPassword'
 import { welcome } from './templates/main/welcome'
 import { dashboard } from './templates/main/dashboard'
 import { transactions } from './templates/main/transactions'
@@ -22,10 +23,19 @@ import { recordPayment } from './templates/lending/recordPayment'
 import { lendingProfile } from './templates/settings/lendingProfile'
 import { lendingAnalytics } from './templates/lending/analytics'
 import { updateCenter } from './templates/settings/updateCenter'
+import { privacyPolicy } from './templates/settings/privacyPolicy'
+import { termsOfService } from './templates/settings/termsOfService'
+import { privacyDataCenter } from './templates/settings/privacyDataCenter'
+import { parentalConsent } from './templates/settings/parentalConsent'
 
 export const stitchHtml = {
   signUp,
   signIn,
+  forgotPassword,
+  privacyPolicy,
+  termsOfService,
+  privacyDataCenter,
+  parentalConsent,
   welcome,
   dashboard,
   transactions,

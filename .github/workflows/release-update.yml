@@ -7,20 +7,32 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (e.g. 1.0.3)'
+        description: 'Release version X.Y.Z (e.g. 1.0.3)'
         required: true
+      build_number:
+        description: 'Optional integer Android versionCode (auto-increments if blank)'
+        required: false
+        default: ''
       release_title:
         description: 'Short title shown in Update Center'
         required: true
-        default: 'Bug Fixes & Performance Update'
+        default: 'Security, Auth, M-PESA/Fuliza & Compliance Update'
       release_notes:
         description: 'Release changelog shown to users'
         required: true
-        default: 'Improved SMS transaction detection, lending sync reliability, and UI refinements.'
+        default: 'Redesigned auth UX with scoped feedback, accurate Fuliza overdraft & recovery correlation, Kenya DPA Privacy Center, and security hardening.'
       is_mandatory:
         description: 'Require users to update'
         type: boolean
         default: false
+      build_aab:
+        description: 'Also build signed Android App Bundle (.aab) for Google Play Console'
+        type: boolean
+        default: true
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build-and-publish:
@@ -31,6 +43,25 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Verify required release secrets upfront
+        env:
+          HAS_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL != '' }}
+          HAS_ANON: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY != '' }}
+          HAS_SERVICE: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY != '' }}
+        run: |
+          node <<'EOF'
+          const missing = [];
+          if (process.env.HAS_URL !== 'true') missing.push('EXPO_PUBLIC_SUPABASE_URL');
+          if (process.env.HAS_ANON !== 'true') missing.push('EXPO_PUBLIC_SUPABASE_ANON_KEY');
+          if (process.env.HAS_SERVICE !== 'true') missing.push('SUPABASE_SERVICE_ROLE_KEY');
+          if (missing.length > 0) {
+            console.error('Missing required GitHub Repository Secrets: ' + missing.join(', '));
+            console.error('Add them under Repo Settings -> Secrets and variables -> Actions.');
+            process.exit(1);
+          }
+          console.log('All required Supabase release secrets verified.');
+          EOF
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -47,11 +78,62 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Setup Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Resolve and synchronize release version
+        id: meta
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_BUILD: ${{ inputs.build_number }}
+          INPUT_TITLE: ${{ inputs.release_title }}
+          INPUT_NOTES: ${{ inputs.release_notes }}
+          INPUT_MANDATORY: ${{ inputs.is_mandatory }}
+          INPUT_AAB: ${{ inputs.build_aab }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          node <<'EOF'
+          const fs = require('fs');
+          const isDispatch = process.env.EVENT_NAME === 'workflow_dispatch';
+          const version = (isDispatch ? process.env.INPUT_VERSION : process.env.REF_NAME).replace(/^v/i, '').trim();
+          if (!/^\d+\.\d+\.\d+$/.test(version)) {
+            console.error('Invalid semantic version:', version);
+            process.exit(1);
+          }
+          const title = isDispatch && process.env.INPUT_TITLE ? process.env.INPUT_TITLE : 'XpenseTracker v' + version;
+          const notes = isDispatch && process.env.INPUT_NOTES ? process.env.INPUT_NOTES : 'Release v' + version;
+          const mandatory = isDispatch ? String(process.env.INPUT_MANDATORY === 'true') : 'false';
+          const buildAab = isDispatch ? String(process.env.INPUT_AAB !== 'false') : 'true';
+          const out = process.env.GITHUB_OUTPUT;
+          fs.appendFileSync(out, 'version=' + version + '\n');
+          fs.appendFileSync(out, 'title=' + title.replace(/[\r\n]+/g, ' ') + '\n');
+          fs.appendFileSync(out, 'notes=' + notes.replace(/[\r\n]+/g, ' ') + '\n');
+          fs.appendFileSync(out, 'mandatory=' + mandatory + '\n');
+          fs.appendFileSync(out, 'build_aab=' + buildAab + '\n');
+          EOF
+          node scripts/sync-version.mjs "${{ steps.meta.outputs.version }}" "${{ inputs.build_number }}"
+          BUILD_CODE=$(node -e "console.log(require('./app.json').expo.android.versionCode)")
+          echo "build_code=$BUILD_CODE" >> "$GITHUB_OUTPUT"
+
       - name: Install dependencies
         run: npm ci
 
-      - name: TypeScript typecheck
-        run: npx tsc --noEmit
+      - name: TypeScript typecheck & automated tests
+        run: |
+          npm run typecheck
+          npm test
+
+      - name: Android manifest security guard
+        run: |
+          node <<'EOF'
+          const fs = require('fs');
+          const manifest = fs.readFileSync('android/app/src/main/AndroidManifest.xml', 'utf8');
+          if (/RECORD_AUDIO|SYSTEM_ALERT_WINDOW/.test(manifest)) {
+            console.error('Blocked unused sensitive permission in main AndroidManifest.xml');
+            process.exit(1);
+          }
+          EOF
 
       - name: Create .env for production bundle
         run: |
@@ -78,34 +160,48 @@ jobs:
             -PMYAPP_UPLOAD_STORE_PASSWORD=${{ secrets.ANDROID_STORE_PASSWORD || 'xpensetracker' }} \
             -PMYAPP_UPLOAD_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD || 'xpensetracker' }}
 
-      - name: Resolve version metadata
-        id: meta
+      - name: Build signed Release AAB (Google Play Bundle)
+        if: steps.meta.outputs.build_aab == 'true'
+        working-directory: android
+        env:
+          EXPO_NO_TELEMETRY: '1'
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ inputs.version }}"
-            TITLE="${{ inputs.release_title }}"
-            NOTES="${{ inputs.release_notes }}"
-            MANDATORY="${{ inputs.is_mandatory }}"
-          else
-            VERSION="${GITHUB_REF_NAME#v}"
-            TITLE="XpenseTracker v${VERSION}"
-            NOTES="Release v${VERSION}"
-            MANDATORY="false"
-          fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "title=$TITLE" >> "$GITHUB_OUTPUT"
-          echo "notes=$NOTES" >> "$GITHUB_OUTPUT"
-          echo "mandatory=$MANDATORY" >> "$GITHUB_OUTPUT"
-          cp android/app/build/outputs/apk/release/XpenseTracker.apk "XpenseTracker-v${VERSION}.apk"
+          ./gradlew bundleRelease \
+            -PMYAPP_UPLOAD_STORE_FILE=release.keystore \
+            -PMYAPP_UPLOAD_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS || 'xpensetracker' }} \
+            -PMYAPP_UPLOAD_STORE_PASSWORD=${{ secrets.ANDROID_STORE_PASSWORD || 'xpensetracker' }} \
+            -PMYAPP_UPLOAD_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD || 'xpensetracker' }}
 
-      - name: Create GitHub Release & upload APK
+      - name: Package release artifacts & checksums
+        id: pkg
+        run: |
+          VERSION="${{ steps.meta.outputs.version }}"
+          APK_FILE="XpenseTracker-v${VERSION}.apk"
+          cp android/app/build/outputs/apk/release/XpenseTracker.apk "$APK_FILE"
+          sha256sum "$APK_FILE" > "${APK_FILE}.sha256"
+          FILES="$APK_FILE,${APK_FILE}.sha256"
+          AAB_SRC=$(find android/app/build/outputs/bundle/release -name '*.aab' 2>/dev/null | head -n 1 || true)
+          if [ -n "$AAB_SRC" ] && [ -f "$AAB_SRC" ]; then
+            AAB_FILE="XpenseTracker-v${VERSION}.aab"
+            cp "$AAB_SRC" "$AAB_FILE"
+            sha256sum "$AAB_FILE" > "${AAB_FILE}.sha256"
+            FILES="$FILES,$AAB_FILE,${AAB_FILE}.sha256"
+          fi
+          echo "files=$FILES" >> "$GITHUB_OUTPUT"
+          echo "sha256=$(cut -d' ' -f1 "${APK_FILE}.sha256")" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release & upload APK/AAB
         id: gh_release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.meta.outputs.version }}
-          name: XpenseTracker v${{ steps.meta.outputs.version }}
-          body: ${{ steps.meta.outputs.notes }}
-          files: XpenseTracker-v${{ steps.meta.outputs.version }}.apk
+          name: XpenseTracker v${{ steps.meta.outputs.version }} (Build ${{ steps.meta.outputs.build_code }})
+          body: |
+            ${{ steps.meta.outputs.notes }}
+
+            - **Version:** `v${{ steps.meta.outputs.version }}` (versionCode `${{ steps.meta.outputs.build_code }}`)
+            - **APK SHA-256:** `${{ steps.pkg.outputs.sha256 }}`
+          files: ${{ steps.pkg.outputs.files }}
 
       - name: Publish update metadata to Supabase app_releases
         env:
@@ -117,30 +213,39 @@ jobs:
           MANDATORY: ${{ steps.meta.outputs.mandatory }}
           APK_URL: https://github.com/${{ github.repository }}/releases/download/v${{ steps.meta.outputs.version }}/XpenseTracker-v${{ steps.meta.outputs.version }}.apk
         run: |
-          node -e "
-            (async () => {
-              const res = await fetch(process.env.SUPABASE_URL + '/rest/v1/app_releases?on_conflict=version', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'apikey': process.env.SUPABASE_SERVICE_KEY,
-                  'Authorization': 'Bearer ' + process.env.SUPABASE_SERVICE_KEY,
-                  'Prefer': 'resolution=merge-duplicates,return=representation'
-                },
-                body: JSON.stringify({
-                  version: process.env.VERSION,
-                  release_title: process.env.TITLE,
-                  release_notes: process.env.NOTES,
-                  update_type: 'native',
-                  is_mandatory: process.env.MANDATORY === 'true',
-                  store_url: process.env.APK_URL,
-                  published_at: new Date().toISOString()
-                })
-              });
-              if (!res.ok) {
-                console.error('Supabase publish failed:', res.status, await res.text());
-                process.exit(1);
-              }
-              console.log('Published release metadata to app_releases:', await res.text());
-            })();
-          "
+          node <<'EOF'
+          (async () => {
+            const res = await fetch(process.env.SUPABASE_URL.replace(/\/$/, '') + '/rest/v1/app_releases?on_conflict=version', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'apikey': process.env.SUPABASE_SERVICE_KEY,
+                'Authorization': 'Bearer ' + process.env.SUPABASE_SERVICE_KEY,
+                'Prefer': 'resolution=merge-duplicates,return=representation'
+              },
+              body: JSON.stringify({
+                version: process.env.VERSION,
+                release_title: process.env.TITLE,
+                release_notes: process.env.NOTES,
+                update_type: 'native',
+                is_mandatory: process.env.MANDATORY === 'true',
+                store_url: process.env.APK_URL,
+                published_at: new Date().toISOString()
+              })
+            });
+            if (!res.ok) {
+              console.error('Supabase publish failed:', res.status, await res.text());
+              process.exit(1);
+            }
+            console.log('Published release metadata to app_releases:', await res.text());
+          })();
+          EOF
+
+      - name: Write workflow summary
+        run: |
+          {
+            echo "### XpenseTracker v${{ steps.meta.outputs.version }} Released"
+            echo "- **versionCode:** ${{ steps.meta.outputs.build_code }}"
+            echo "- **APK SHA-256:** \`${{ steps.pkg.outputs.sha256 }}\`"
+            echo "- **Update Center URL:** https://github.com/${{ github.repository }}/releases/download/v${{ steps.meta.outputs.version }}/XpenseTracker-v${{ steps.meta.outputs.version }}.apk"
+          } >> "$GITHUB_STEP_SUMMARY"

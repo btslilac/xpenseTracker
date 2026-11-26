@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Data Subject Rights Request — XpenseTracker</title>
+  <script src="../config.js"></script>
+  <style>
+    :root { color-scheme: light dark; --bg: #f8fafc; --card: #ffffff; --fg: #0f172a; --muted: #475569; --border: #e2e8f0; --accent: #4f46e5; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #09090b; --card: #18181b; --fg: #f4f4f5; --muted: #a1a1aa; --border: #27272a; --accent: #818cf8; } }
+    body { margin: 0; font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--fg); line-height: 1.6; }
+    main { max-width: 720px; margin: 0 auto; padding: 32px 20px 64px; }
+    nav a { color: var(--accent); text-decoration: none; font-size: 14px; font-weight: 600; }
+    section { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-top: 16px; }
+    label { display: block; font-size: 13px; font-weight: 600; margin: 12px 0 4px; }
+    input, select, textarea { width: 100%; box-sizing: border-box; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--card); color: inherit; font-size: 14px; }
+    button { margin-top: 14px; padding: 12px 18px; border-radius: 10px; border: none; background: var(--accent); color: #fff; font-weight: 700; cursor: pointer; font-size: 14px; }
+    .status { margin-top: 12px; font-size: 13px; padding: 10px 12px; border-radius: 10px; display: none; border: 1px solid var(--border); }
+    .status.show { display: block; }
+  </style>
+</head>
+<body>
+  <main>
+    <nav><a href="../">&larr; Compliance Portal</a></nav>
+    <h1>Kenya DPA Data Subject Rights Request</h1>
+    <p style="color:var(--muted);font-size:14px;">Exercise your rights of access, data portability, rectification, restriction, or objection under the Kenya Data Protection Act, 2019.</p>
+    <section>
+      <form id="dsar-form">
+        <label for="dsar-type">Request Type</label>
+        <select id="dsar-type">
+          <option value="access_export">Access / Portability Copy (JSON &amp; CSV)</option>
+          <option value="rectification">Correction / Rectification of Data</option>
+          <option value="restriction">Restriction / Objection to Processing</option>
+          <option value="deletion">Erasure / Deletion Request</option>
+        </select>
+        <label for="dsar-email">Email Address</label>
+        <input id="dsar-email" type="email" required placeholder="you@example.com"/>
+        <label for="dsar-details">Request Details</label>
+        <textarea id="dsar-details" rows="4" required placeholder="Specify the records or right you wish to exercise..."></textarea>
+        <button type="submit">Submit Compliance Request</button>
+      </form>
+      <div id="dsar-status" class="status" role="status" aria-live="polite"></div>
+    </section>
+  </main>
+  <script>
+    document.getElementById('dsar-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      var cfg = window.XPENSE_PUBLIC_CONFIG || {};
+      var email = document.getElementById('dsar-email').value.trim();
+      var type = document.getElementById('dsar-type').value;
+      var details = document.getElementById('dsar-details').value.trim();
+      var box = document.getElementById('dsar-status');
+      box.className = 'status show';
+      if (!cfg.supabaseUrl || !cfg.supabaseAnonKey) {
+        box.textContent = 'Email ' + (cfg.supportEmail || 'support@xpensetracker.app') + ' from ' + email + ' specifying request type "' + type + '" and your verification details.';
+        return;
+      }
+      try {
+        var res = await fetch(cfg.supabaseUrl.replace(/\/$/, '') + '/rest/v1/rpc/submit_external_privacy_request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': cfg.supabaseAnonKey, 'Authorization': 'Bearer ' + cfg.supabaseAnonKey },
+          body: JSON.stringify({ p_email: email, p_request_type: type, p_details: details })
+        });
+        var data = await res.json();
+        box.textContent = (data && data.message) || 'Your compliance request has been recorded.';
+      } catch (err) {
+        box.textContent = 'Network error. Email ' + (cfg.supportEmail || 'support@xpensetracker.app') + '.';
+      }
+    });
+  </script>
+</body>
+</html>

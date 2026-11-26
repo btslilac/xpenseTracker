@@ -55,15 +55,15 @@ tailwind.config = {
 
 <main class="w-full max-w-xl md:max-w-4xl lg:max-w-5xl mx-auto px-4 py-4 flex flex-col gap-5">
   <!-- Mode Segment Filter -->
-  <div class="flex items-center justify-between bg-slate-100 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700">
+  <div class="flex items-center justify-between bg-slate-100 dark:bg-[var(--surface-container)] p-1 rounded-2xl border border-slate-200/80 dark:border-[var(--outline-variant)]">
     <button id="btn-mode-all" class="mode-pill active flex-1 py-2 px-3 rounded-xl text-xs font-bold text-center transition-all">
       All Records
     </button>
-    <button id="btn-mode-casual" class="mode-pill flex-1 py-2 px-3 rounded-xl text-xs font-bold text-center text-slate-600 dark:text-slate-300 transition-all flex items-center justify-center gap-1">
+    <button id="btn-mode-casual" class="mode-pill flex-1 py-2 px-3 rounded-xl text-xs font-bold text-center text-slate-600 dark:text-[var(--text-secondary)] transition-all flex items-center justify-center gap-1">
       <span class="material-symbols-outlined text-[16px]">handshake</span>
       Casual
     </button>
-    <button id="btn-mode-formal" class="mode-pill flex-1 py-2 px-3 rounded-xl text-xs font-bold text-center text-slate-600 dark:text-slate-300 transition-all flex items-center justify-center gap-1">
+    <button id="btn-mode-formal" class="mode-pill flex-1 py-2 px-3 rounded-xl text-xs font-bold text-center text-slate-600 dark:text-[var(--text-secondary)] transition-all flex items-center justify-center gap-1">
       <span class="material-symbols-outlined text-[16px]">account_balance</span>
       Loan Agreements
     </button>
@@ -97,23 +97,23 @@ tailwind.config = {
       <!-- Casual KPIs -->
       <div class="grid grid-cols-2 gap-3">
         <!-- Casual Lent -->
-        <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex flex-col justify-between">
+        <div class="p-3 rounded-xl bg-slate-50 dark:bg-[var(--surface-container-low)] border border-slate-100 dark:border-[var(--outline-variant)] flex flex-col justify-between">
           <div class="flex items-center justify-between mb-1">
             <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Owed to Me</span>
             <span class="material-symbols-outlined text-emerald-500 text-[16px]">arrow_outward</span>
           </div>
-          <h3 id="stat-casual-lent-rem" class="text-base font-bold text-slate-900 dark:text-slate-100">KSh 0</h3>
-          <span class="text-[10px] text-slate-400 mt-1">Total Lent: <b id="stat-casual-lent-prin" class="text-slate-600 dark:text-slate-300 font-semibold">KSh 0</b></span>
+          <h3 id="stat-casual-lent-rem" class="text-base font-bold text-slate-900 dark:text-[var(--text-primary)]">KSh 0</h3>
+          <span class="text-[10px] text-slate-400 dark:text-[var(--text-muted)] mt-1">Total Lent: <b id="stat-casual-lent-prin" class="text-slate-600 dark:text-[var(--text-secondary)] font-semibold">KSh 0</b></span>
         </div>
 
         <!-- Casual Borrowed -->
-        <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex flex-col justify-between">
+        <div class="p-3 rounded-xl bg-slate-50 dark:bg-[var(--surface-container-low)] border border-slate-100 dark:border-[var(--outline-variant)] flex flex-col justify-between">
           <div class="flex items-center justify-between mb-1">
             <span class="text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">What I Owe</span>
             <span class="material-symbols-outlined text-rose-500 text-[16px]">call_received</span>
           </div>
-          <h3 id="stat-casual-borrow-rem" class="text-base font-bold text-slate-900 dark:text-slate-100">KSh 0</h3>
-          <span class="text-[10px] text-slate-400 mt-1">Total Borrowed: <b id="stat-casual-borrow-prin" class="text-slate-600 dark:text-slate-300 font-semibold">KSh 0</b></span>
+          <h3 id="stat-casual-borrow-rem" class="text-base font-bold text-slate-900 dark:text-[var(--text-primary)]">KSh 0</h3>
+          <span class="text-[10px] text-slate-400 dark:text-[var(--text-muted)] mt-1">Total Borrowed: <b id="stat-casual-borrow-prin" class="text-slate-600 dark:text-[var(--text-secondary)] font-semibold">KSh 0</b></span>
         </div>
       </div>
 
@@ -163,23 +163,23 @@ tailwind.config = {
       <!-- Formal KPIs -->
       <div class="grid grid-cols-2 gap-3">
         <!-- Client Receivables -->
-        <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex flex-col justify-between">
+        <div class="p-3 rounded-xl bg-slate-50 dark:bg-[var(--surface-container-low)] border border-slate-100 dark:border-[var(--outline-variant)] flex flex-col justify-between">
           <div class="flex items-center justify-between mb-1">
             <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Client Receivables</span>
             <span class="material-symbols-outlined text-emerald-500 text-[16px]">trending_up</span>
           </div>
-          <h3 id="stat-formal-lent-rem" class="text-base font-bold text-slate-900 dark:text-slate-100">KSh 0</h3>
-          <span class="text-[10px] text-slate-400 mt-1">Principal: <b id="stat-formal-lent-prin" class="text-slate-600 dark:text-slate-300 font-semibold">KSh 0</b></span>
+          <h3 id="stat-formal-lent-rem" class="text-base font-bold text-slate-900 dark:text-[var(--text-primary)]">KSh 0</h3>
+          <span class="text-[10px] text-slate-400 dark:text-[var(--text-muted)] mt-1">Principal: <b id="stat-formal-lent-prin" class="text-slate-600 dark:text-[var(--text-secondary)] font-semibold">KSh 0</b></span>
         </div>
 
         <!-- Institutional Debt -->
-        <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex flex-col justify-between">
+        <div class="p-3 rounded-xl bg-slate-50 dark:bg-[var(--surface-container-low)] border border-slate-100 dark:border-[var(--outline-variant)] flex flex-col justify-between">
           <div class="flex items-center justify-between mb-1">
             <span class="text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">Institutional Debt</span>
             <span class="material-symbols-outlined text-rose-500 text-[16px]">account_balance</span>
           </div>
-          <h3 id="stat-formal-borrow-rem" class="text-base font-bold text-slate-900 dark:text-slate-100">KSh 0</h3>
-          <span class="text-[10px] text-slate-400 mt-1">Principal: <b id="stat-formal-borrow-prin" class="text-slate-600 dark:text-slate-300 font-semibold">KSh 0</b></span>
+          <h3 id="stat-formal-borrow-rem" class="text-base font-bold text-slate-900 dark:text-[var(--text-primary)]">KSh 0</h3>
+          <span class="text-[10px] text-slate-400 dark:text-[var(--text-muted)] mt-1">Principal: <b id="stat-formal-borrow-prin" class="text-slate-600 dark:text-[var(--text-secondary)] font-semibold">KSh 0</b></span>
         </div>
       </div>
 
@@ -220,13 +220,13 @@ tailwind.config = {
       </button>
     </div>
     <div class="grid grid-cols-2 gap-3">
-      <div class="p-2.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/30 flex flex-col">
+      <div class="p-2.5 rounded-xl bg-[var(--fin-income-bg)] border border-emerald-500/20 flex flex-col">
         <span class="text-[10px] text-emerald-700 dark:text-emerald-300 font-semibold">Repayments Received</span>
-        <span id="stat-received-month" class="text-sm font-bold text-emerald-600 dark:text-emerald-400">+KSh 0</span>
+        <span id="stat-received-month" class="text-sm font-bold text-[var(--fin-income)]">+KSh 0</span>
       </div>
-      <div class="p-2.5 rounded-xl bg-rose-50/60 dark:bg-rose-950/30 flex flex-col">
+      <div class="p-2.5 rounded-xl bg-[var(--fin-expense-bg)] border border-rose-500/20 flex flex-col">
         <span class="text-[10px] text-rose-700 dark:text-rose-300 font-semibold">Repayments Made</span>
-        <span id="stat-repaid-month" class="text-sm font-bold text-rose-600 dark:text-rose-400">-KSh 0</span>
+        <span id="stat-repaid-month" class="text-sm font-bold text-[var(--fin-expense)]">-KSh 0</span>
       </div>
     </div>
   </section>

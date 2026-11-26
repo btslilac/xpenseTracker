@@ -31,6 +31,61 @@ export type LendingSettings = {
   enabled: boolean
 }
 
+export type AgeBracket = 'adult_18_plus' | 'under_18'
+export type GuardianConsentStatus = 'not_required' | 'pending' | 'verified' | 'revoked'
+
+export type UserConsentMetadata = {
+  ageBracket?: AgeBracket
+  isMinor?: boolean
+  guardianConsentStatus?: GuardianConsentStatus
+  guardianName?: string
+  guardianEmail?: string
+  guardianConsentToken?: string
+  termsVersion?: string
+  privacyVersion?: string
+  smsDisclosureVersion?: string
+  termsAcceptedAt?: string
+  privacyAcceptedAt?: string
+  smsConsentGrantedAt?: string | null
+  smsConsentWithdrawnAt?: string | null
+  helpTooltipsDisabled?: boolean
+}
+
+export type AuthErrorType =
+  | 'invalid_credentials'
+  | 'email_not_confirmed'
+  | 'rate_limited'
+  | 'network'
+  | 'validation'
+  | 'guardian_consent_required'
+  | 'unknown'
+
+export type AuthResult = {
+  ok: boolean
+  message: string
+  errorType?: AuthErrorType
+  retryAfterSeconds?: number
+  requiresEmailVerification?: boolean
+  requiresGuardianConsent?: boolean
+}
+
+export type SignUpInput = {
+  fullName: string
+  email: string
+  password: string
+  ageBracket: AgeBracket
+  guardianName?: string
+  guardianEmail?: string
+  acceptedLegal: boolean
+}
+
+export type PrivacyRequestType =
+  | 'access_export'
+  | 'rectification'
+  | 'restriction'
+  | 'deletion'
+  | 'guardian_verification'
+
 export type Category = {
   id: string
   name: string
@@ -68,6 +123,7 @@ export type UserSettings = {
   lending?: LendingSettings
   smsTransactionDetection?: boolean
   biometricLock?: boolean
+  compliance?: UserConsentMetadata
 }
 
 export type Account = {

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Parental &amp; Guardian Consent — XpenseTracker</title>
+  <script src="../config.js"></script>
+  <style>
+    :root { color-scheme: light dark; --bg: #f8fafc; --card: #ffffff; --fg: #0f172a; --muted: #475569; --border: #e2e8f0; --accent: #4f46e5; --danger: #dc2626; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #09090b; --card: #18181b; --fg: #f4f4f5; --muted: #a1a1aa; --border: #27272a; --accent: #818cf8; --danger: #f87171; } }
+    body { margin: 0; font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--fg); line-height: 1.6; }
+    main { max-width: 720px; margin: 0 auto; padding: 32px 20px 64px; }
+    nav a { color: var(--accent); text-decoration: none; font-size: 14px; font-weight: 600; }
+    section { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-top: 16px; }
+    label { display: block; font-size: 13px; font-weight: 600; margin: 12px 0 4px; }
+    input { width: 100%; box-sizing: border-box; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--border); background: transparent; color: inherit; font-size: 14px; }
+    .row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+    button { padding: 12px 18px; border-radius: 10px; border: none; background: var(--accent); color: #fff; font-weight: 700; cursor: pointer; font-size: 14px; }
+    button.danger { background: var(--danger); }
+    .status { margin-top: 12px; font-size: 13px; padding: 10px 12px; border-radius: 10px; display: none; border: 1px solid var(--border); }
+    .status.show { display: block; }
+  </style>
+</head>
+<body>
+  <main>
+    <nav><a href="../">&larr; Compliance Portal</a></nav>
+    <h1>Parent / Guardian Consent Verification</h1>
+    <p style="color:var(--muted);font-size:14px;">Required under Section 33 of the Kenya Data Protection Act, 2019 before an account registered for a user under 18 can access full financial tracking.</p>
+    <section>
+      <label for="gc-email">Designated Parent / Guardian Email</label>
+      <input id="gc-email" type="email" required placeholder="guardian@example.com"/>
+      <label for="gc-token">Verification Code</label>
+      <input id="gc-token" type="text" required placeholder="GC-XXXXXXXXXX"/>
+      <div class="row">
+        <button id="gc-approve" type="button">Approve &amp; Verify Consent</button>
+        <button id="gc-revoke" type="button" class="danger">Revoke Consent</button>
+      </div>
+      <div id="gc-status" class="status" role="status" aria-live="polite"></div>
+    </section>
+  </main>
+  <script>
+    async function submitGuardianDecision(decision) {
+      var cfg = window.XPENSE_PUBLIC_CONFIG || {};
+      var email = document.getElementById('gc-email').value.trim();
+      var token = document.getElementById('gc-token').value.trim();
+      var box = document.getElementById('gc-status');
+      box.className = 'status show';
+      if (!email || !token) { box.textContent = 'Enter both guardian email and verification code.'; return; }
+      if (!cfg.supabaseUrl || !cfg.supabaseAnonKey) {
+        box.textContent = 'Project RPC endpoint not configured in docs/config.js yet. Guardians can also verify directly inside the app under Privacy & Data Center -> Parental Consent or email ' + (cfg.supportEmail || 'support@xpensetracker.app') + '.';
+        return;
+      }
+      try {
+        var res = await fetch(cfg.supabaseUrl.replace(/\/$/, '') + '/rest/v1/rpc/verify_guardian_consent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': cfg.supabaseAnonKey, 'Authorization': 'Bearer ' + cfg.supabaseAnonKey },
+          body: JSON.stringify({ p_token: token, p_guardian_email: email, p_decision: decision })
+        });
+        var data = await res.json();
+        box.textContent = (data && data.message) || 'Verification processed.';
+      } catch (err) {
+        box.textContent = 'Network error while verifying guardian consent.';
+      }
+    }
+    document.getElementById('gc-approve').addEventListener('click', function() { submitGuardianDecision('verified'); });
+    document.getElementById('gc-revoke').addEventListener('click', function() { submitGuardianDecision('revoked'); });
+  </script>
+</body>
+</html>

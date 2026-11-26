@@ -95,152 +95,203 @@ export const analytics = `<!DOCTYPE html>
 <style>
     body {
       min-height: max(884px, 100dvh);
+      -webkit-tap-highlight-color: transparent;
     }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
   </style>
 </head>
 <body class="bg-background text-on-background pb-24 pt-16">
 <header class="fixed top-0 left-0 w-full z-50 px-5 h-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/50 dark:border-slate-800/50 shadow-sm transition-all duration-200 flex items-center">
 <div class="w-full max-w-xl md:max-w-4xl lg:max-w-5xl mx-auto flex justify-between items-center">
-<div class="flex items-center">
-<h1 class="text-xl font-bold text-indigo-900 dark:text-indigo-100 font-['Inter']">Analytics</h1>
+<div class="flex items-center gap-2.5">
+<h1 class="text-xl font-bold text-[var(--text-primary)] font-['Inter']">Analytics</h1>
+<span id="header-range-pill" class="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-[var(--primary-container)] text-[var(--on-primary-container)]">Monthly</span>
 </div>
-<div class="w-8 h-8 rounded-full overflow-hidden bg-surface-variant flex items-center justify-center">
-<img alt="User profile photo" class="w-full h-full object-cover" data-alt="close-up portrait of a young professional with short dark hair, smiling gently against a bright background" src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&amp;accessories=shades&amp;top=shortHair"/>
+<div onclick="window.__stitchPost({type:'navigate',route:'profile'})" class="w-8 h-8 rounded-full overflow-hidden bg-surface-variant flex items-center justify-center cursor-pointer active:scale-95 transition-transform">
+<img alt="User profile photo" class="w-full h-full object-cover" src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&amp;accessories=shades&amp;top=shortHair"/>
 </div>
 </div>
 </header>
 
 <main class="w-full max-w-xl md:max-w-4xl lg:max-w-5xl mx-auto px-container-margin py-base flex flex-col gap-5">
-<div class="flex bg-surface-container rounded-full p-1 mt-4">
-<button class="analytics-toggle flex-1 text-center py-2 rounded-full font-label-sm text-label-sm text-on-surface-variant hover:bg-surface-container-high transition-colors" data-view="weekly">Weekly</button>
-<button class="analytics-toggle flex-1 text-center py-2 rounded-full font-label-sm text-label-sm bg-primary text-on-primary shadow-sm transition-colors" data-view="monthly">Monthly</button>
+<!-- Period Filter Segmented Control -->
+<div class="flex bg-surface-container rounded-full p-1 mt-4 border border-outline-variant shadow-sm" role="tablist" aria-label="Report period">
+<button type="button" role="tab" class="analytics-toggle flex-1 text-center py-2 rounded-full font-label-sm text-label-sm font-bold text-on-surface-variant transition-all" data-view="weekly">Weekly</button>
+<button type="button" role="tab" class="analytics-toggle flex-1 text-center py-2 rounded-full font-label-sm text-label-sm font-bold bg-primary text-on-primary shadow-sm transition-all" data-view="monthly">Monthly</button>
+<button type="button" role="tab" class="analytics-toggle flex-1 text-center py-2 rounded-full font-label-sm text-label-sm font-bold text-on-surface-variant transition-all" data-view="yearly">Yearly</button>
 </div>
 
-<section class="bg-primary text-on-primary rounded-[24px] p-6 shadow-xl relative overflow-hidden transition-all duration-300">
+<!-- Period Hero Summary Card -->
+<section class="xp-hero-surface text-white rounded-[24px] p-6 shadow-xl relative overflow-hidden transition-all duration-300 border border-white/15">
 <div class="relative z-10">
 <div class="flex items-start justify-between gap-4">
 <div>
-<p class="font-label-sm text-label-sm opacity-80 uppercase tracking-widest mb-1" id="period-chip">This Month</p>
-<div class="flex items-baseline gap-1">
-<span class="text-2xl font-semibold opacity-90">Ksh </span>
-<h2 id="total-expense" class="text-[34px] font-extrabold tracking-tight leading-none">0</h2>
+<p class="font-label-sm text-label-sm opacity-85 uppercase tracking-widest mb-1" id="period-chip">This Month</p>
+<p class="text-[11px] font-medium text-white/75 mb-2" id="period-range-label"></p>
+<h2 id="total-expense" class="text-[32px] sm:text-[36px] font-extrabold tracking-tight leading-none text-white">KSh 0</h2>
+</div>
+<div class="rounded-full bg-white/15 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/95 shrink-0 border border-white/15">
+Expense Report
 </div>
 </div>
-<div class="rounded-full bg-white/16 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/90">
-Expense
-</div>
-</div>
-<p id="comparison-text" class="mt-4 text-sm leading-6 text-white/80">vs last month</p>
+<p id="comparison-text" class="mt-3 text-sm leading-5 text-white/90 font-medium">vs last month</p>
+<p id="summary-caption" class="mt-1 text-xs leading-5 text-white/75"></p>
 <div class="mt-5 grid grid-cols-2 gap-3">
-<div class="rounded-2xl bg-white/12 px-4 py-3 backdrop-blur-sm ring-1 ring-white/10">
-<p class="text-[11px] uppercase tracking-[0.16em] text-white/65">Net</p>
-<p id="hero-net" class="mt-1 text-lg font-semibold text-white">Ksh 0</p>
+<div class="rounded-2xl bg-white/15 px-4 py-3 backdrop-blur-sm border border-white/15">
+<p class="text-[11px] uppercase tracking-[0.14em] text-white/75">Net Cash Flow</p>
+<p id="hero-net" class="mt-1 text-base sm:text-lg font-bold text-white">KSh 0</p>
 </div>
-<div class="rounded-2xl bg-white/12 px-4 py-3 backdrop-blur-sm ring-1 ring-white/10">
-<p class="text-[11px] uppercase tracking-[0.16em] text-white/65">Budget</p>
-<p id="hero-budget" class="mt-1 text-lg font-semibold text-white">Not set</p>
+<div class="rounded-2xl bg-white/15 px-4 py-3 backdrop-blur-sm border border-white/15">
+<p id="hero-budget-label" class="text-[11px] uppercase tracking-[0.14em] text-white/75">Monthly Limit</p>
+<p id="hero-budget" class="mt-1 text-base sm:text-lg font-bold text-white">Not set</p>
 </div>
 </div>
 </div>
-<div class="absolute -right-12 -top-12 w-48 h-48 bg-white/10 rounded-full blur-3xl"></div>
-<div class="absolute -left-12 -bottom-12 w-48 h-48 bg-indigo-400/20 rounded-full blur-3xl"></div>
+<div class="absolute -right-12 -top-12 w-48 h-48 bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
+<div class="absolute -left-12 -bottom-12 w-48 h-48 bg-indigo-400/20 rounded-full blur-3xl pointer-events-none"></div>
 </section>
 
-<section class="grid grid-cols-2 md:grid-cols-4 gap-4">
-<article class="bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant/30 shadow-sm">
+<!-- Core Financial Metrics Grid -->
+<section class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+<article class="theme-card bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant shadow-sm">
 <div class="flex items-center gap-2 mb-2">
-<div class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container">
+<div class="w-8 h-8 rounded-full bg-[var(--fin-income-bg)] text-[var(--fin-income)] flex items-center justify-center shrink-0">
 <span class="material-symbols-outlined text-[18px]">south_west</span>
 </div>
 <span class="font-label-sm text-label-sm text-outline">Income</span>
 </div>
-<p id="metric-income" class="font-title-lg text-xl font-bold text-on-surface">Ksh 0</p>
+<p id="metric-income" class="font-title-lg text-lg sm:text-xl font-bold text-on-surface">KSh 0</p>
+<p id="metric-income-caption" class="mt-1 text-[11px] leading-4 text-on-surface-variant">Cash inflows</p>
 </article>
-<article class="bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant/30 shadow-sm">
+<article class="theme-card bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant shadow-sm">
 <div class="flex items-center gap-2 mb-2">
-<div class="w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center text-primary">
+<div class="w-8 h-8 rounded-full bg-[var(--primary-container)] text-[var(--on-primary-container)] flex items-center justify-center shrink-0">
 <span class="material-symbols-outlined text-[18px]">account_balance</span>
 </div>
-<span class="font-label-sm text-label-sm text-outline">Net Cash Flow</span>
+<span class="font-label-sm text-label-sm text-outline">Net Flow</span>
 </div>
-<p id="metric-net" class="font-title-lg text-xl font-bold text-on-surface">Ksh 0</p>
+<p id="metric-net" class="font-title-lg text-lg sm:text-xl font-bold text-on-surface">KSh 0</p>
 <p id="metric-net-caption" class="mt-1 text-[11px] leading-4 text-on-surface-variant">Money left after expenses</p>
 </article>
-<article class="bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant/30 shadow-sm">
+<article class="theme-card bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant shadow-sm">
 <div class="flex items-center gap-2 mb-2">
-<div class="w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center text-primary">
+<div class="w-8 h-8 rounded-full bg-[var(--fin-warning-bg)] text-[var(--fin-warning)] flex items-center justify-center shrink-0">
 <span class="material-symbols-outlined text-[18px]">speed</span>
 </div>
-<span class="font-label-sm text-label-sm text-outline">Budget Pulse</span>
+<span class="font-label-sm text-label-sm text-outline">Budget Pace</span>
 </div>
-<p id="metric-budget" class="font-title-lg text-xl font-bold text-on-surface">Not set</p>
+<p id="metric-budget" class="font-title-lg text-lg sm:text-xl font-bold text-on-surface">Not set</p>
 <p id="metric-budget-caption" class="mt-1 text-[11px] leading-4 text-on-surface-variant">Set a budget to track your pace</p>
 </article>
-<article class="bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant/30 shadow-sm">
+<article class="theme-card bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant shadow-sm">
 <div class="flex items-center gap-2 mb-2">
-<div class="w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center text-primary">
+<div class="w-8 h-8 rounded-full bg-[var(--primary-container)] text-[var(--on-primary-container)] flex items-center justify-center shrink-0">
 <span class="material-symbols-outlined text-[18px]">calendar_today</span>
 </div>
-<span class="font-label-sm text-label-sm text-outline">Avg Spend</span>
+<span id="metric-average-label" class="font-label-sm text-label-sm text-outline">Avg Spend</span>
 </div>
-<p id="metric-average" class="font-title-lg text-xl font-bold text-on-surface">Ksh 0</p>
+<p id="metric-average" class="font-title-lg text-lg sm:text-xl font-bold text-on-surface">KSh 0</p>
 <p id="metric-average-caption" class="mt-1 text-[11px] leading-4 text-on-surface-variant">Average spend per day</p>
 </article>
 </section>
 
-<!-- Category Budget Status & Quick Insights Grid -->
-<div class="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
-<section id="category-budget-status-section" class="bg-surface-container-lowest rounded-[24px] p-card-padding border border-outline-variant/30 shadow-sm">
-<div class="flex items-center justify-between gap-3">
-<h2 class="font-title-lg text-on-surface">Category Budget Status</h2>
-<span class="text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Monthly</span>
+<!-- Expounded Cash Flow & Spending Trend Section -->
+<section id="analytics-trend-section" class="theme-card bg-surface-container-lowest rounded-[24px] p-card-padding border border-outline-variant shadow-sm">
+<div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+<div>
+<h2 id="trend-section-title" class="font-title-lg text-on-surface">Spending &amp; Income Trend</h2>
+<p id="trend-section-subtitle" class="text-[11px] text-on-surface-variant">Period activity breakdown</p>
 </div>
-<div id="category-budget-status-list" class="mt-4 flex flex-col gap-3">
-<div class="rounded-2xl border border-dashed border-outline-variant bg-surface-container-low p-4 text-center">
-<p class="text-sm font-semibold text-on-surface">No category budgets yet</p>
-<p class="mt-1 text-[11px] leading-4 text-on-surface-variant">Set category budgets from Budget Settings to track them here.</p>
+<div class="flex items-center gap-2">
+<div id="monthly-trend-mode-wrap" class="hidden bg-surface-container rounded-full p-0.5 border border-outline-variant">
+<button type="button" class="trend-mode-btn no-min-touch px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors" data-mode="weekly">Weeks</button>
+<button type="button" class="trend-mode-btn no-min-touch px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors" data-mode="daily">Daily</button>
+</div>
+<div class="flex items-center gap-2.5 text-[10px] font-semibold text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-[var(--action-primary)] inline-block"></span>Spend</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-[var(--fin-income)] inline-block"></span>Income</span>
 </div>
 </div>
+</div>
+
+<!-- Selected Period Inspection Pill -->
+<div id="trend-selected-banner" class="mb-4 px-3.5 py-2.5 rounded-2xl bg-surface-container-low border border-outline-variant flex items-center justify-between gap-2 text-xs">
+<span id="trend-selected-label" class="font-bold text-on-surface truncate">Tap any bar to inspect</span>
+<div class="flex items-center gap-3 shrink-0">
+<span id="trend-selected-expense" class="font-bold text-[var(--fin-expense)]"></span>
+<span id="trend-selected-income" class="font-bold text-[var(--fin-income)]"></span>
+</div>
+</div>
+
+<!-- Interactive Bar Chart -->
+<div id="trend-bars-container" class="flex items-end gap-1.5 sm:gap-2 h-44 pt-2 pb-1 overflow-x-auto no-scrollbar"></div>
 </section>
 
-<section class="bg-surface-container-lowest rounded-[24px] p-card-padding border border-outline-variant/30 shadow-sm">
+<!-- Expounded Category Breakdown & Category Budget Status -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
+<section id="analytics-category-section" class="theme-card bg-surface-container-lowest rounded-[24px] p-card-padding border border-outline-variant shadow-sm">
 <div class="flex items-center justify-between gap-3">
-<h2 class="font-title-lg text-on-surface">Quick Insights</h2>
+<div>
+<h2 class="font-title-lg text-on-surface">Category Breakdown</h2>
+<p id="analytics-category-subtitle" class="text-[11px] text-on-surface-variant">Where your money went</p>
+</div>
+<span id="analytics-category-scope" class="text-[11px] font-bold uppercase tracking-[0.12em] px-2.5 py-1 rounded-full bg-[var(--primary-container)] text-[var(--on-primary-container)]">Monthly</span>
+</div>
+<div id="analytics-category-list" class="mt-4 flex flex-col gap-3"></div>
+</section>
+
+<div class="flex flex-col gap-5">
+<section id="category-budget-status-section" class="theme-card bg-surface-container-lowest rounded-[24px] p-card-padding border border-outline-variant shadow-sm">
+<div class="flex items-center justify-between gap-3">
+<div>
+<h2 class="font-title-lg text-on-surface">Category Budget Status</h2>
+<p class="text-[11px] text-on-surface-variant">Tracking limits per category</p>
+</div>
+<span id="budget-scope-badge" class="text-[11px] font-bold uppercase tracking-[0.12em] px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant">Monthly</span>
+</div>
+<div id="category-budget-status-list" class="mt-4 flex flex-col gap-3"></div>
+</section>
+
+<section class="theme-card bg-surface-container-lowest rounded-[24px] p-card-padding border border-outline-variant shadow-sm">
+<div class="flex items-center justify-between gap-3">
+<div>
+<h2 class="font-title-lg text-on-surface">Period Insights</h2>
+<p class="text-[11px] text-on-surface-variant">Highlights &amp; behavioral signals</p>
+</div>
 <span class="material-symbols-outlined text-primary text-[20px]">auto_awesome</span>
 </div>
-<div id="insight-list" class="mt-4 flex flex-col gap-3">
-<div class="rounded-2xl bg-surface-container-low p-4">
-<p class="text-sm font-medium text-on-surface">Insights will appear here.</p>
-</div>
-</div>
+<div id="insight-list" class="mt-4 flex flex-col gap-3"></div>
 </section>
 </div>
+</div>
 
+<!-- Leader Highlights -->
 <section class="grid grid-cols-1 md:grid-cols-2 gap-4">
-<article class="bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant/30 shadow-sm">
+<article class="theme-card bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant shadow-sm">
 <div class="flex items-center justify-between">
 <div>
 <p class="font-label-sm text-label-sm text-outline">Top Category</p>
-<h3 id="signal-top-name" class="mt-2 text-lg font-semibold leading-6 text-on-surface">No category data</h3>
+<h3 id="signal-top-name" class="mt-1.5 text-lg font-bold leading-6 text-on-surface">No category data</h3>
 </div>
-<div class="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center text-primary">
+<div class="w-10 h-10 rounded-full bg-[var(--primary-container)] text-[var(--on-primary-container)] flex items-center justify-center shrink-0">
 <span class="material-symbols-outlined text-[20px]">pie_chart</span>
 </div>
 </div>
-<p id="signal-top-amount" class="mt-3 text-xl font-bold leading-7 text-on-surface">Ksh 0</p>
+<p id="signal-top-amount" class="mt-2.5 text-xl font-extrabold leading-7 text-on-surface">KSh 0</p>
 <p id="signal-top-caption" class="mt-1 text-[11px] leading-4 text-on-surface-variant">Add spending to see category leaders</p>
 </article>
-<article class="bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant/30 shadow-sm">
+<article class="theme-card bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant shadow-sm">
 <div class="flex items-center justify-between">
 <div>
 <p class="font-label-sm text-label-sm text-outline">Largest Expense</p>
-<h3 id="signal-largest-name" class="mt-2 text-lg font-semibold leading-6 text-on-surface">No expense recorded</h3>
+<h3 id="signal-largest-name" class="mt-1.5 text-lg font-bold leading-6 text-on-surface">No expense recorded</h3>
 </div>
-<div class="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center text-primary">
+<div class="w-10 h-10 rounded-full bg-[var(--fin-expense-bg)] text-[var(--fin-expense)] flex items-center justify-center shrink-0">
 <span class="material-symbols-outlined text-[20px]">receipt_long</span>
 </div>
 </div>
-<p id="signal-largest-amount" class="mt-3 text-xl font-bold leading-7 text-on-surface">Ksh 0</p>
+<p id="signal-largest-amount" class="mt-2.5 text-xl font-extrabold leading-7 text-on-surface">KSh 0</p>
 <p id="signal-largest-caption" class="mt-1 text-[11px] leading-4 text-on-surface-variant">Your biggest expense will appear here</p>
 </article>
 </section>

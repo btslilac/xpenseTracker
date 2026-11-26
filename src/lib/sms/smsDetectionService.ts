@@ -8,16 +8,21 @@ import {
   PendingSmsDetection,
   PendingSmsStatus,
 } from './smsParser.types';
-import { parseTransactionSms } from './parseTransactionSms';
+import {
+  correlateParsedSmsTransactions,
+  mergeIncomingWithFulizaRepayment,
+  mergeOutgoingExpenseWithFulizaBorrow,
+  parseTransactionSms,
+} from './parseTransactionSms';
 import {
   checkSmsPermissionsSilently,
   hasNotificationAccess,
-  hasOverlayPermission,
 } from '../../native/smsExpenseCapture';
 
 const STORAGE_PROCESSED_PREFIX = '@processedSmsFingerprints_';
 const STORAGE_PENDING_PREFIX = '@pendingSmsDetections_';
 const MAX_PROCESSED_HISTORY = 400;
+const DELAYED_CORRELATION_WINDOW_MS = 10 * 60 * 1000;
 
 export interface OsPermissionsSnapshot {
   notificationsGranted: boolean;
@@ -80,9 +85,11 @@ export class SmsDetectionService {
     this.ledgerPayments = payments || [];
   }
 
-  private async persistProcessedFingerprint(userId: string, fingerprint: string) {
+  private async persistProcessedFingerprints(userId: string, fingerprints: string[]) {
     await this.ensureUserLoaded(userId);
-    this.processedFingerprints.add(fingerprint);
+    fingerprints.forEach((fp) => {
+      if (fp) this.processedFingerprints.add(fp);
+    });
     try {
       const sliced = Array.from(this.processedFingerprints).slice(-MAX_PROCESSED_HISTORY);
       await AsyncStorage.setItem(this.getProcessedKey(userId), JSON.stringify(sliced));
@@ -102,19 +109,36 @@ export class SmsDetectionService {
     }
   }
 
-  private async savePendingQueue(userId: string, queue: PendingSmsDetection[]) {
+  public async savePendingQueue(userId: string, queue: PendingSmsDetection[]): Promise<void> {
     try {
-      const bounded = queue.slice(-40);
-      await AsyncStorage.setItem(this.getPendingKey(userId), JSON.stringify(bounded));
+      // Strict data minimization: strip rawMessage body before persisting long-lived queue items
+      const sanitized = queue.map((item) => ({
+        ...item,
+        parsed: {
+          ...item.parsed,
+          rawMessage: undefined,
+        },
+      }));
+      await AsyncStorage.setItem(this.getPendingKey(userId), JSON.stringify(sanitized));
     } catch {
-      // ignore
+      // ignore storage errors
     }
   }
 
-  /**
-   * Checks OS permissions WITHOUT triggering any interactive system prompts.
-   */
+  public async clearUserSmsData(userId: string): Promise<void> {
+    const uid = userId || 'guest';
+    this.processedFingerprints.clear();
+    await AsyncStorage.multiRemove([this.getProcessedKey(uid), this.getPendingKey(uid)]).catch(() => {});
+    if (this.onQueueChangedCallback) {
+      this.onQueueChangedCallback(null, 0);
+    }
+  }
+
   public async checkPermissionsStatus(): Promise<OsPermissionsSnapshot> {
+    return this.getOsPermissionsSnapshot();
+  }
+
+  public async getOsPermissionsSnapshot(): Promise<OsPermissionsSnapshot> {
     const platform = Platform.OS === 'ios' ? 'ios' : Platform.OS === 'web' ? 'web' : 'android';
     let notificationsGranted = false;
     try {
@@ -134,23 +158,22 @@ export class SmsDetectionService {
       };
     }
 
-    const [smsGranted, notificationListenerGranted, overlayGranted] = await Promise.all([
+    const [smsGranted, notificationListenerGranted] = await Promise.all([
       checkSmsPermissionsSilently(),
       hasNotificationAccess().catch(() => false),
-      hasOverlayPermission().catch(() => false),
     ]);
 
     return {
       notificationsGranted,
       smsGranted,
       notificationListenerGranted,
-      overlayGranted,
+      overlayGranted: false,
       platform,
     };
   }
 
   /**
-   * Explicitly requests SMS and Notification permissions on Android (call ONLY on user intent).
+   * Explicitly requests SMS and Notification permissions on Android (call ONLY after prominent disclosure & user consent).
    */
   public async requestPermissions(): Promise<{
     ok: boolean;
@@ -202,7 +225,7 @@ export class SmsDetectionService {
           neverAskAgain,
           reason: neverAskAgain
             ? 'SMS permission is blocked in Android settings. Open App Settings -> Permissions -> SMS to allow transaction detection.'
-            : 'SMS Read/Receive permissions are required on Android to detect incoming M-PESA & bank alerts.',
+            : 'SMS Read/Receive permissions are required on Android to detect incoming M-PESA & bank alerts, or you can use manual SMS paste.',
         };
       }
 
@@ -214,7 +237,7 @@ export class SmsDetectionService {
         ok: false,
         smsGranted: false,
         notificationsGranted: false,
-        reason: 'Notification permissions are required to detect incoming transaction alerts.',
+        reason: 'Notification permissions are required to alert on detected transactions.',
       };
     } catch (err) {
       return {
@@ -257,6 +280,57 @@ export class SmsDetectionService {
     });
   }
 
+  /**
+   * Correlates delayed secondary Fuliza SMS (Scenario D) against existing pending items
+   * before adding a duplicate prompt to the queue.
+   */
+  private tryCorrelateWithExistingQueue(
+    queue: PendingSmsDetection[],
+    incoming: ParsedSmsTransaction
+  ): PendingSmsDetection[] | null {
+    const incTs = new Date(incoming.smsTimestamp).getTime();
+
+    if (incoming.classificationCategory === 'FULIZA_BORROWING') {
+      const idx = queue.findIndex((item) => {
+        if (item.status !== 'pending' && item.status !== 'awaiting_details') return false;
+        const p = item.parsed;
+        if (p.classificationCategory !== 'CONFIRMED_EXPENSE' || p.provider !== 'MPESA') return false;
+        if (p.fulizaDetails?.isFulizaInvolved) return false;
+        const dt = Math.abs(incTs - new Date(p.smsTimestamp).getTime());
+        return dt <= DELAYED_CORRELATION_WINDOW_MS && p.amount >= incoming.amount;
+      });
+      if (idx !== -1) {
+        const next = [...queue];
+        next[idx] = {
+          ...next[idx],
+          parsed: mergeOutgoingExpenseWithFulizaBorrow(next[idx].parsed, incoming),
+        };
+        return next;
+      }
+    }
+
+    if (incoming.classificationCategory === 'FULIZA_REPAYMENT') {
+      const idx = queue.findIndex((item) => {
+        if (item.status !== 'pending' && item.status !== 'awaiting_details') return false;
+        const p = item.parsed;
+        if (p.classificationCategory !== 'CONFIRMED_INCOME' || p.provider !== 'MPESA') return false;
+        if (p.fulizaDetails?.isFulizaInvolved) return false;
+        const dt = Math.abs(incTs - new Date(p.smsTimestamp).getTime());
+        return dt <= DELAYED_CORRELATION_WINDOW_MS && p.amount >= incoming.amount;
+      });
+      if (idx !== -1) {
+        const next = [...queue];
+        next[idx] = {
+          ...next[idx],
+          parsed: mergeIncomingWithFulizaRepayment(next[idx].parsed, incoming),
+        };
+        return next;
+      }
+    }
+
+    return null;
+  }
+
   public async enqueueParsedSms(
     userId: string,
     senderId: string,
@@ -266,27 +340,38 @@ export class SmsDetectionService {
     const uid = userId || this.activeUserId || 'guest';
     await this.ensureUserLoaded(uid);
 
-    // 1. Already processed or dismissed previously
-    if (this.processedFingerprints.has(parsed.fingerprint)) {
+    const fps = parsed.correlatedFingerprints || [parsed.fingerprint];
+    if (fps.some((fp) => this.processedFingerprints.has(fp))) {
       return null;
     }
 
     const queue = await this.loadPendingQueue(uid);
 
-    // 2. Already queued waiting for classification
     if (
       queue.some(
         (item) =>
-          item.parsed.fingerprint === parsed.fingerprint &&
+          (item.parsed.fingerprint === parsed.fingerprint ||
+            (item.parsed.correlatedFingerprints || []).some((fp) => fps.includes(fp))) &&
           (item.status === 'pending' || item.status === 'awaiting_details')
       )
     ) {
       return null;
     }
 
-    // 3. Already recorded in transactions or loan payments
     if (this.matchesExistingLedgerRecord(parsed)) {
-      await this.persistProcessedFingerprint(uid, parsed.fingerprint);
+      await this.persistProcessedFingerprints(uid, fps);
+      return null;
+    }
+
+    // Attempt Scenario D delayed correlation against an existing pending queue entry
+    const mergedQueue = this.tryCorrelateWithExistingQueue(queue, parsed);
+    if (mergedQueue) {
+      await this.savePendingQueue(uid, mergedQueue);
+      await this.persistProcessedFingerprints(uid, [parsed.fingerprint]);
+      if (this.onQueueChangedCallback) {
+        const actionable = mergedQueue.filter((item) => item.status === 'pending');
+        this.onQueueChangedCallback(actionable[0] ?? null, actionable.length);
+      }
       return null;
     }
 
@@ -294,7 +379,7 @@ export class SmsDetectionService {
       id: `det_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       userId: uid,
       senderId,
-      parsed,
+      parsed: { ...parsed, rawMessage: undefined },
       status: 'pending',
       detectedAt: new Date().toISOString(),
       nativeEventId,
@@ -315,7 +400,7 @@ export class SmsDetectionService {
     events: NativeCapturedSmsEvent[]
   ): Promise<{ processedIds: string[]; addedCount: number }> {
     const processedIds: string[] = [];
-    let addedCount = 0;
+    const parsedBatch: { evt: NativeCapturedSmsEvent; parsed: ParsedSmsTransaction }[] = [];
 
     for (const evt of events) {
       processedIds.push(evt.id);
@@ -323,14 +408,59 @@ export class SmsDetectionService {
         continue;
       }
       const parsed = parseTransactionSms(evt.sender, evt.rawBody, evt.receivedAt);
-      if (!parsed) {
-        continue;
+      if (parsed) {
+        parsedBatch.push({ evt, parsed });
       }
-      const added = await this.enqueueParsedSms(userId, evt.sender, parsed, evt.id);
+    }
+
+    const correlated = correlateParsedSmsTransactions(parsedBatch.map((b) => b.parsed));
+    let addedCount = 0;
+
+    for (const tx of correlated) {
+      const added = await this.enqueueParsedSms(userId, tx.senderId || 'MPESA', tx);
       if (added) addedCount++;
     }
 
     return { processedIds, addedCount };
+  }
+
+  /**
+   * Google Play compliant user-initiated manual SMS / statement block import (no READ_SMS required).
+   */
+  public async ingestManualPastedMessages(
+    userId: string,
+    rawText: string
+  ): Promise<{ totalBlocks: number; importedCount: number; skippedDuplicates: number }> {
+    const blocks = String(rawText || '')
+      .split(/\n{2,}|(?=^[A-Z0-9]{10}\s+Confirmed\b)/im)
+      .map((s) => s.trim())
+      .filter((s) => s.length >= 16);
+
+    const parsedList: ParsedSmsTransaction[] = [];
+    for (const block of blocks) {
+      const inferredSender = /pesalink/i.test(block)
+        ? 'PESALINK'
+        : /equity|kcb|ncba|coop|absa|stanbic/i.test(block)
+          ? 'KCB'
+          : 'MPESA';
+      const parsed = parseTransactionSms(inferredSender, block, Date.now());
+      if (parsed) parsedList.push(parsed);
+    }
+
+    const correlated = correlateParsedSmsTransactions(parsedList);
+    let importedCount = 0;
+    let skippedDuplicates = 0;
+
+    for (const tx of correlated) {
+      const added = await this.enqueueParsedSms(userId, tx.senderId || 'MPESA', tx);
+      if (added) {
+        importedCount++;
+      } else {
+        skippedDuplicates++;
+      }
+    }
+
+    return { totalBlocks: blocks.length, importedCount, skippedDuplicates };
   }
 
   public async getNextPendingDetection(
@@ -351,11 +481,11 @@ export class SmsDetectionService {
   ): Promise<void> {
     const uid = userId || this.activeUserId || 'guest';
     const queue = await this.loadPendingQueue(uid);
-    let targetFingerprint = '';
+    let targetFingerprints: string[] = [];
 
     const nextQueue = queue.map((item) => {
       if (item.id === detectionId) {
-        targetFingerprint = item.parsed.fingerprint;
+        targetFingerprints = item.parsed.correlatedFingerprints || [item.parsed.fingerprint];
         return { ...item, status };
       }
       return item;
@@ -367,10 +497,10 @@ export class SmsDetectionService {
         : nextQueue;
 
     if (
-      targetFingerprint &&
+      targetFingerprints.length > 0 &&
       (status === 'posted' || status === 'dismissed' || status === 'duplicate')
     ) {
-      await this.persistProcessedFingerprint(uid, targetFingerprint);
+      await this.persistProcessedFingerprints(uid, targetFingerprints);
     }
 
     await this.savePendingQueue(uid, filteredQueue);

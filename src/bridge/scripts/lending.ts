@@ -69,9 +69,9 @@ export function lendingDashboardScript(): string {
 
       // Mode Switcher Filter Logic
       function setModeFilter(mode) {
-        if (btnModeAll) btnModeAll.className = 'mode-pill flex-1 py-2 px-3 rounded-xl text-xs font-bold text-center transition-all' + (mode === 'all' ? ' active' : ' text-slate-600 dark:text-slate-300');
-        if (btnModeCasual) btnModeCasual.className = 'mode-pill flex-1 py-2 px-3 rounded-xl text-xs font-bold text-center transition-all flex items-center justify-center gap-1' + (mode === 'casual' ? ' active' : ' text-slate-600 dark:text-slate-300');
-        if (btnModeFormal) btnModeFormal.className = 'mode-pill flex-1 py-2 px-3 rounded-xl text-xs font-bold text-center transition-all flex items-center justify-center gap-1' + (mode === 'formal' ? ' active' : ' text-slate-600 dark:text-slate-300');
+        if (btnModeAll) btnModeAll.className = 'mode-pill flex-1 py-2 px-3 rounded-xl text-xs font-bold text-center transition-all' + (mode === 'all' ? ' active' : ' text-slate-600 dark:text-[var(--text-secondary)]');
+        if (btnModeCasual) btnModeCasual.className = 'mode-pill flex-1 py-2 px-3 rounded-xl text-xs font-bold text-center transition-all flex items-center justify-center gap-1' + (mode === 'casual' ? ' active' : ' text-slate-600 dark:text-[var(--text-secondary)]');
+        if (btnModeFormal) btnModeFormal.className = 'mode-pill flex-1 py-2 px-3 rounded-xl text-xs font-bold text-center transition-all flex items-center justify-center gap-1' + (mode === 'formal' ? ' active' : ' text-slate-600 dark:text-[var(--text-secondary)]');
 
         if (sectionCasual) {
           if (mode === 'formal') sectionCasual.classList.add('hidden');
@@ -114,29 +114,29 @@ export function lendingDashboardScript(): string {
       // Card Creation Helper
       function createAgreementCard(item) {
         var card = document.createElement('div');
-        card.className = 'theme-card p-3 rounded-xl bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col gap-2.5 cursor-pointer active:scale-98 transition-all';
+        card.className = 'p-3 rounded-xl bg-slate-50 dark:bg-[var(--surface-container)] border border-slate-200 dark:border-[var(--outline-variant)] shadow-2xs flex flex-col gap-2.5 cursor-pointer active:scale-98 transition-all';
         var isCasual = item.agreementCategory === 'casual';
         var badgeLabel = isCasual ? (item.relationship || 'Casual') : 'Formal';
-        var badgeClass = isCasual ? 'bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300' : 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300';
+        var badgeClass = isCasual ? 'bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300' : 'bg-[var(--primary-container)] text-[var(--on-primary-container)]';
         card.innerHTML = 
           '<div class="flex items-center justify-between">' +
             '<div class="flex items-center gap-2">' +
-              '<div class="w-7 h-7 rounded-lg flex items-center justify-center ' + (item.direction === 'lent' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60' : 'bg-rose-50 text-rose-600 dark:bg-rose-950/60') + '">' +
+              '<div class="w-7 h-7 rounded-lg flex items-center justify-center ' + (item.direction === 'lent' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400' : 'bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400') + '">' +
                 '<span class="material-symbols-outlined text-[15px]">' + (item.direction === 'lent' ? 'arrow_outward' : 'call_received') + '</span>' +
               '</div>' +
               '<div class="min-w-0">' +
                 '<div class="flex items-center gap-1.5">' +
-                  '<h4 class="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">' + item.counterparty + '</h4>' +
+                  '<h4 class="text-xs font-bold text-slate-900 dark:text-[var(--text-primary)] truncate">' + item.counterparty + '</h4>' +
                   '<span class="px-1.5 py-0.2 rounded text-[8px] font-bold ' + badgeClass + '">' + badgeLabel + '</span>' +
                 '</div>' +
-                '<span class="text-[9px] text-slate-400">' + item.reference + ' • Due ' + item.dueDateFormatted + '</span>' +
+                '<span class="text-[9px] text-slate-400 dark:text-[var(--text-muted)]">' + item.reference + ' • Due ' + item.dueDateFormatted + '</span>' +
               '</div>' +
             '</div>' +
             '<span class="px-2 py-0.5 rounded-full text-[9px] font-semibold shrink-0 ' + item.statusBg + ' ' + item.statusText + '">' + item.statusLabel + '</span>' +
           '</div>' +
-          '<div class="flex items-center justify-between pt-1.5 border-t border-slate-100 dark:border-slate-700/60 text-[11px]">' +
-            '<span class="text-slate-500 dark:text-slate-400">Remaining</span>' +
-            '<span class="font-bold text-slate-900 dark:text-slate-100">' + item.remainingFormatted + '</span>' +
+          '<div class="flex items-center justify-between pt-1.5 border-t border-slate-200/70 dark:border-[var(--outline-variant)] text-[11px]">' +
+            '<span class="text-slate-500 dark:text-[var(--text-secondary)]">Remaining</span>' +
+            '<span class="font-bold text-slate-900 dark:text-[var(--text-primary)]">' + item.remainingFormatted + '</span>' +
           '</div>';
 
         card.addEventListener('click', function() {
@@ -229,7 +229,7 @@ export function lendingAgreementsScript(): string {
           card.innerHTML = 
             '<div class="flex items-center justify-between">' +
               '<div class="flex items-center gap-3">' +
-                '<div class="w-10 h-10 rounded-xl flex items-center justify-center ' + (item.direction === 'lent' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60' : 'bg-rose-50 text-rose-600 dark:bg-rose-950/60') + '">' +
+                '<div class="w-10 h-10 rounded-xl flex items-center justify-center ' + (item.direction === 'lent' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400' : 'bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400') + '">' +
                   '<span class="material-symbols-outlined text-[20px]">' + (item.direction === 'lent' ? 'arrow_outward' : 'call_received') + '</span>' +
                 '</div>' +
                 '<div>' +

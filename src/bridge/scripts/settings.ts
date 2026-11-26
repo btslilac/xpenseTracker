@@ -514,6 +514,15 @@ if (manageBtn) {
   });
 }
 
+const manualImportBtn = document.getElementById('btn-manual-sms-import');
+if (manualImportBtn) {
+  manualImportBtn.addEventListener('click', () => {
+    if (typeof window.__stitchManualSmsImportModal === 'function') {
+      window.__stitchManualSmsImportModal();
+    }
+  });
+}
+
 const save = document.getElementById('btn-save-notifications') || [...document.querySelectorAll('button')].find((node) => window.__stitchText(node) === 'Save Preferences');
 if (save) {
   save.addEventListener('click', () => {
@@ -558,23 +567,48 @@ const items = [...document.querySelectorAll('[data-help-item]')];
 const setAccordionState = (targetItem, open) => {
   const answer = targetItem.querySelector('[data-help-answer]');
   const icon = targetItem.querySelector('[data-help-icon]');
-  if (answer) answer.classList.toggle('hidden', !open);
-  if (icon) icon.textContent = open ? 'remove' : 'add';
+  targetItem.setAttribute('data-open', open ? 'true' : 'false');
+  if (answer) {
+    answer.classList.remove('hidden');
+    if (!answer.classList.contains('xp-accordion-body')) {
+      const inner = document.createElement('div');
+      inner.className = 'xp-accordion-inner';
+      while (answer.firstChild) inner.appendChild(answer.firstChild);
+      answer.appendChild(inner);
+      answer.classList.add('xp-accordion-body');
+    }
+  }
+  if (icon) {
+    icon.textContent = open ? 'remove' : 'add';
+    icon.style.transition = 'transform 180ms var(--motion-curve)';
+    icon.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
+  }
 };
 
 items.forEach((item, index) => {
   const toggle = item.querySelector('[data-help-toggle]');
   const answer = item.querySelector('[data-help-answer]');
   if (!toggle || !answer) return;
+  item.classList.add('xp-accordion-item');
 
   if (index === 0) {
     setAccordionState(item, true);
+  } else {
+    setAccordionState(item, false);
   }
 
+  toggle.setAttribute('aria-expanded', index === 0 ? 'true' : 'false');
   toggle.addEventListener('click', () => {
-    const isOpen = !answer.classList.contains('hidden');
-    items.forEach((entry) => setAccordionState(entry, false));
-    if (!isOpen) setAccordionState(item, true);
+    const isOpen = item.getAttribute('data-open') === 'true';
+    items.forEach((entry) => {
+      setAccordionState(entry, false);
+      const t = entry.querySelector('[data-help-toggle]');
+      if (t) t.setAttribute('aria-expanded', 'false');
+    });
+    if (!isOpen) {
+      setAccordionState(item, true);
+      toggle.setAttribute('aria-expanded', 'true');
+    }
   });
 });
 

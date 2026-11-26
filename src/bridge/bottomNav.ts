@@ -12,6 +12,11 @@ const LENDING_WORKSPACE_ROUTES = new Set<StitchRoute>([
 const HIDDEN_NAV_ROUTES = new Set<StitchRoute>([
   'signin',
   'signup',
+  'forgotPassword',
+  'privacyPolicy',
+  'termsOfService',
+  'privacyDataCenter',
+  'parentalConsent',
   'welcome',
   'createAgreement',
   'recordPayment',

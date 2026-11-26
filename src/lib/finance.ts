@@ -143,6 +143,14 @@ function endOfMonth(date: Date) {
   return endOfDay(new Date(date.getFullYear(), date.getMonth() + 1, 0))
 }
 
+function startOfYear(date: Date) {
+  return new Date(date.getFullYear(), 0, 1)
+}
+
+function endOfYear(date: Date) {
+  return endOfDay(new Date(date.getFullYear(), 11, 31))
+}
+
 function getTransactionsInRange(account: Account, start: Date, end: Date) {
   const startTime = start.getTime()
   const endTime = end.getTime()
@@ -165,6 +173,15 @@ export function getPreviousWeekTransactions(account: Account, referenceDate = ne
 export function getPreviousMonthTransactions(account: Account, referenceDate = new Date()) {
   const reference = new Date(referenceDate.getFullYear(), referenceDate.getMonth() - 1, 1)
   return getTransactionsInRange(account, startOfMonth(reference), endOfMonth(reference))
+}
+
+export function getCurrentYearTransactions(account: Account, referenceDate = new Date()) {
+  return getTransactionsInRange(account, startOfYear(referenceDate), endOfYear(referenceDate))
+}
+
+export function getPreviousYearTransactions(account: Account, referenceDate = new Date()) {
+  const reference = new Date(referenceDate.getFullYear() - 1, 0, 1)
+  return getTransactionsInRange(account, startOfYear(reference), endOfYear(reference))
 }
 
 export function getSummaryForTransactions(account: Account, transactions: Transaction[]) {
@@ -328,31 +345,82 @@ export function buildCurrentMonthDailyTrend(account: Account, referenceDate = ne
   return days
 }
 
+export function buildCurrentYearTrend(account: Account, referenceDate = new Date()) {
+  const targetYear = referenceDate.getFullYear()
+  const months = Array.from({ length: 12 }, (_, monthIndex) => {
+    const date = new Date(targetYear, monthIndex, 1)
+    return {
+      key: monthIndex,
+      label: date.toLocaleString('en-KE', { month: 'short' }),
+      detailLabel: date.toLocaleString('en-KE', { month: 'long', year: 'numeric' }),
+      income: 0,
+      expenses: 0,
+    }
+  })
+
+  for (const transaction of getCurrentYearTransactions(account, referenceDate)) {
+    const date = new Date(transaction.date)
+    if (date.getFullYear() !== targetYear) {
+      continue
+    }
+    const target = months[date.getMonth()]
+    if (!target) {
+      continue
+    }
+    if (transaction.type === 'income') {
+      target.income += transaction.amount
+    } else {
+      target.expenses += transaction.amount
+    }
+  }
+
+  return months
+}
+
 export function buildCategoryBreakdown(account: Account) {
   return buildCategoryBreakdownForTransactions(account, account.transactions)
 }
 
 export function buildCategoryBreakdownForTransactions(account: Account, transactions: Transaction[]) {
-  return account.categories
-    .filter((category) => category.type === 'expense')
+  const expenseTransactions = transactions.filter((transaction) => transaction.type === 'expense')
+  const expenseCategories = account.categories.filter((category) => category.type === 'expense')
+  const knownIds = new Set(expenseCategories.map((category) => category.id))
+
+  const items = expenseCategories
     .map((category) => {
-      const value = transactions
-        .filter((transaction) => transaction.type === 'expense' && transaction.categoryId === category.id)
-        .reduce((sum, transaction) => sum + transaction.amount, 0)
+      const matching = expenseTransactions.filter((transaction) => transaction.categoryId === category.id)
+      const value = matching.reduce((sum, transaction) => sum + transaction.amount, 0)
       return {
         id: category.id,
         name: category.name,
         value,
         color: category.color,
+        txCount: matching.length,
       }
     })
-    .sort((left, right) => {
-      // Sort by value descending, then by name
-      if (right.value !== left.value) {
-        return right.value - left.value
-      }
-      return left.name.localeCompare(right.name)
-    })
+    .filter((item) => item.value > 0)
+
+  const orphanExpenses = expenseTransactions.filter((transaction) => !knownIds.has(transaction.categoryId))
+  if (orphanExpenses.length > 0) {
+    const orphanTotal = orphanExpenses.reduce((sum, transaction) => sum + transaction.amount, 0)
+    if (orphanTotal > 0) {
+      items.push({
+        id: 'uncategorized',
+        name: 'Other / Uncategorized',
+        value: orphanTotal,
+        color: '#64748B',
+        txCount: orphanExpenses.length,
+      })
+    }
+  }
+
+  return items.sort((left, right) => {
+    // Sort by value descending, then by name
+    if (right.value !== left.value) {
+      return right.value - left.value
+    }
+    return left.name.localeCompare(right.name)
+  })
 }
 
 export function getRecentTransactions(account: Account, count = 5) {

@@ -224,6 +224,11 @@ Switch anytime between Liquid Glass and Material 3 Expressive visual styles, Lig
   <span>Copy Support Address</span>
 </button>
 </div>
+<div class="pt-3 border-t border-outline-variant/30 flex flex-wrap gap-2">
+  <button type="button" data-stitch-route="privacyPolicy" class="px-3 py-2 rounded-xl bg-surface-container-high text-xs font-semibold text-on-surface">Privacy Policy</button>
+  <button type="button" data-stitch-route="termsOfService" class="px-3 py-2 rounded-xl bg-surface-container-high text-xs font-semibold text-on-surface">Terms of Service</button>
+  <button type="button" data-stitch-route="privacyDataCenter" class="px-3 py-2 rounded-xl bg-primary/10 text-xs font-semibold text-primary">Privacy &amp; Data Center</button>
+</div>
 </section>
 </main>
 </body></html>`;

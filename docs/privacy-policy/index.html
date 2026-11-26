@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Privacy Policy — XpenseTracker</title>
+  <style>
+    :root { color-scheme: light dark; --bg: #f8fafc; --card: #ffffff; --fg: #0f172a; --muted: #475569; --border: #e2e8f0; --accent: #4f46e5; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #09090b; --card: #18181b; --fg: #f4f4f5; --muted: #a1a1aa; --border: #27272a; --accent: #818cf8; } }
+    body { margin: 0; font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--fg); line-height: 1.65; }
+    main { max-width: 780px; margin: 0 auto; padding: 32px 20px 64px; }
+    nav a { color: var(--accent); text-decoration: none; font-size: 14px; font-weight: 600; }
+    section { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-top: 16px; }
+    h1 { margin: 14px 0 4px; font-size: 26px; }
+    h2 { margin: 0 0 8px; font-size: 16px; }
+    p, li { font-size: 14px; color: var(--muted); }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: rgba(16,185,129,.14); color: #059669; }
+  </style>
+</head>
+<body>
+  <main>
+    <nav><a href="../">&larr; Compliance Portal</a></nav>
+    <h1>XpenseTracker Privacy Policy</h1>
+    <span class="badge">Kenya Data Protection Act, 2019 &bull; Version 2026.11.1</span>
+
+    <section>
+      <h2>1. Data Controller &amp; Scope</h2>
+      <p>Operated by <strong>[PLACEHOLDER: Legal Entity Name / Registered Operator]</strong>, [PLACEHOLDER: Physical Office &amp; Postal Address in Kenya], ODPC Registration No.: [PLACEHOLDER: ODPC Certificate Number]. Contact: <a href="mailto:support@xpensetracker.app">support@xpensetracker.app</a> ([PLACEHOLDER: DPO Phone / Dedicated Privacy Contact]).</p>
+    </section>
+
+    <section>
+      <h2>2. Personal &amp; Financial Data Processed</h2>
+      <ul>
+        <li><strong>Account Profile:</strong> Display name, email address, optional phone/birthdate if added by you, and chosen avatar.</li>
+        <li><strong>User Ledger Records:</strong> Expenses, income, categories, budgets, and personal lending/borrowing agreements and repayments synced for multi-device continuity.</li>
+        <li><strong>Consent &amp; Age Verification:</strong> Age bracket indicator (18 or older vs Under 18), parent/guardian email &amp; verification token for minors, versioned Terms/Privacy acceptance timestamps, SMS consent timestamps, and privacy request logs.</li>
+        <li><strong>Optional On-Device SMS Alerts:</strong> When explicitly enabled with Android <code>READ_SMS</code> / <code>RECEIVE_SMS</code> permissions, only financial alerts from recognized Kenyan financial sender IDs (M-PESA, Fuliza, PesaLink, Kenyan banks) are parsed locally inside your phone.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>3. On-Device Processing vs. Cloud Providers</h2>
+      <ul>
+        <li><strong>On-Device Only:</strong> Raw SMS text messages, temporary Android SharedPreferences queues (<code>xpense_sms_capture</code>), SMS deduplication fingerprints, and local offline AsyncStorage caches remain on your device. Raw SMS inbox text is NOT uploaded to cloud databases or third-party AI/ad networks.</li>
+        <li><strong>Cloud Providers:</strong> Synced user ledger records, consent logs, and authentication credentials are stored in Supabase (PostgreSQL + Supabase Auth, TLS + Row-Level Security). Optional Google Sign-In uses Google OAuth. WebView UI styling fetches Tailwind/Material stylesheets from public CDNs while online.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>4. Children’s Privacy (Under 18 in Kenya)</h2>
+      <p>Under the Kenya Data Protection Act, 2019 (Section 33), individuals under 18 require parent/guardian consent. Minor accounts start in a restricted state with automated SMS detection disabled until a parent or guardian verifies consent via our <a href="../parental-consent/">Parental Consent page</a>.</p>
+    </section>
+
+    <section>
+      <h2>5. Retention, Deletion &amp; Data Subject Rights</h2>
+      <p>Active ledger and consent records are retained until you delete your account or withdraw consent. Encrypted infrastructure backups expire after [PLACEHOLDER: Supabase Backup Retention Window, e.g., 7–30 days]. You may export (JSON/CSV), correct, restrict, or permanently delete your data via in-app Settings &rarr; Privacy &amp; Data Center, <a href="../account-deletion/">Account Deletion</a>, or <a href="../data-request/">Data Request Portal</a>.</p>
+    </section>
+  </main>
+</body>
+</html>

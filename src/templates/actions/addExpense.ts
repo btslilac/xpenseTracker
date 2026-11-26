@@ -209,7 +209,7 @@ export const addExpense = `<!DOCTYPE html>
 <section class="grid grid-cols-1 md:grid-cols-2 gap-4">
 <!-- Date Picker -->
 <div class="relative cursor-pointer" id="date-trigger">
-<label class="font-label-sm text-[11px] uppercase tracking-wider text-primary absolute -top-2.5 left-4 z-10 bg-white dark:bg-slate-900 px-2 font-bold select-none" style="">Date</label>
+<label class="font-label-sm text-[11px] uppercase tracking-wider text-primary absolute -top-2.5 left-4 z-10 bg-[var(--bg-canvas)] px-2 rounded-md font-bold select-none" style="">Date</label>
 <div class="flex items-center bg-surface-container-lowest border border-outline-variant rounded-2xl px-4 py-4 mt-2 shadow-sm focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-all hover:bg-surface-container-low">
 <span class="material-symbols-outlined text-outline mr-3 text-[22px]" style="">calendar_today</span>
 <span class="font-body-base text-body-base text-on-surface font-medium" id="date-display">Select Date</span>
@@ -217,7 +217,7 @@ export const addExpense = `<!DOCTYPE html>
 </div>
 <!-- Notes/Memo -->
 <div class="relative">
-<label class="font-label-sm text-[11px] uppercase tracking-wider text-primary absolute -top-2.5 left-4 z-10 bg-white dark:bg-slate-900 px-2 font-bold select-none" style="">Notes</label>
+<label class="font-label-sm text-[11px] uppercase tracking-wider text-primary absolute -top-2.5 left-4 z-10 bg-[var(--bg-canvas)] px-2 rounded-md font-bold select-none" style="">Notes</label>
 <div class="flex items-center bg-surface-container-lowest border border-outline-variant rounded-2xl px-4 py-4 mt-2 shadow-sm focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-all">
 <span class="material-symbols-outlined text-outline mr-3 text-[22px]" style="">description</span>
 <input class="w-full bg-transparent border-none p-0 focus:ring-0 font-body-base text-body-base text-on-surface font-medium" id="note-input" placeholder="Add a note" type="text"/>

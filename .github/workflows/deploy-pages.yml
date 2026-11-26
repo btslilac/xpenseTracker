@@ -1,0 +1,63 @@
+name: Deploy Public Compliance Portal (GitHub Pages)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+      - '.github/workflows/deploy-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Prepare static site with public client config
+        env:
+          PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          rm -rf _site
+          cp -r docs _site
+          touch _site/.nojekyll
+          node <<'EOF'
+          const fs = require('fs');
+          const cfg = {
+            supabaseUrl: process.env.PUBLIC_SUPABASE_URL || '',
+            supabaseAnonKey: process.env.PUBLIC_SUPABASE_ANON_KEY || '',
+            supportEmail: 'support@xpensetracker.app',
+            appName: 'XpenseTracker'
+          };
+          const js = 'window.XPENSE_PUBLIC_CONFIG = ' + JSON.stringify(cfg, null, 2) + ';\n';
+          fs.writeFileSync('_site/config.js', js, 'utf8');
+          EOF
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '_site'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

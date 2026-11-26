@@ -1,8 +1,9 @@
 import {
-  buildCategoryBreakdown,
+  buildCategoryBreakdownForTransactions,
   findCategory,
   formatCurrency,
   getAccountSummary,
+  getCurrentMonthTransactions,
   getRecentTransactions,
 } from '../../lib/finance'
 import { getCategoryAppearance } from '../../lib/categoryAppearance'
@@ -112,8 +113,10 @@ export function buildDashboardPayload(
     }
   })
 
-  const breakdown = buildCategoryBreakdown(account).slice(0, 8)
-  const totalBreakdown = breakdown.reduce((sum, item) => sum + item.value, 0) || 1
+  const currentMonthTransactions = getCurrentMonthTransactions(account)
+  const allBreakdown = buildCategoryBreakdownForTransactions(account, currentMonthTransactions)
+  const totalBreakdown = allBreakdown.reduce((sum, item) => sum + item.value, 0) || 1
+  const breakdown = allBreakdown.slice(0, 8)
 
   const firstName = extractFirstName(account.settings.fullName)
   const greeting = firstName ? `Welcome, ${firstName}!` : 'Welcome!'
@@ -203,7 +206,10 @@ export function buildDashboardPayload(
       return {
         name: item.name,
         amount: formatCurrency(item.value, currency),
+        rawAmount: item.value,
+        txCount: item.txCount,
         icon: appearance.icon,
+        color: appearance.color,
         background: appearance.background,
         foreground: appearance.foreground,
         percent: Math.round((item.value / totalBreakdown) * 100),

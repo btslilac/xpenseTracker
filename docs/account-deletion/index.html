@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Account &amp; Data Deletion — XpenseTracker</title>
+  <script src="../config.js"></script>
+  <style>
+    :root { color-scheme: light dark; --bg: #f8fafc; --card: #ffffff; --fg: #0f172a; --muted: #475569; --border: #e2e8f0; --accent: #4f46e5; --danger: #dc2626; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #09090b; --card: #18181b; --fg: #f4f4f5; --muted: #a1a1aa; --border: #27272a; --accent: #818cf8; --danger: #f87171; } }
+    body { margin: 0; font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--fg); line-height: 1.6; }
+    main { max-width: 720px; margin: 0 auto; padding: 32px 20px 64px; }
+    nav a { color: var(--accent); text-decoration: none; font-size: 14px; font-weight: 600; }
+    section { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-top: 16px; }
+    label { display: block; font-size: 13px; font-weight: 600; margin: 12px 0 4px; }
+    input, textarea { width: 100%; box-sizing: border-box; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--border); background: transparent; color: inherit; font-size: 14px; }
+    button { margin-top: 14px; padding: 12px 18px; border-radius: 10px; border: none; background: var(--danger); color: #fff; font-weight: 700; cursor: pointer; font-size: 14px; }
+    .status { margin-top: 12px; font-size: 13px; padding: 10px 12px; border-radius: 10px; display: none; }
+    .status.show { display: block; border: 1px solid var(--border); }
+  </style>
+</head>
+<body>
+  <main>
+    <nav><a href="../">&larr; Compliance Portal</a></nav>
+    <h1>XpenseTracker Account &amp; Data Deletion</h1>
+    <p style="color:var(--muted);font-size:14px;">Submit an authenticated or email-based permanent deletion request without needing mobile app access.</p>
+
+    <section>
+      <h2>What Gets Deleted Permanently</h2>
+      <p style="font-size:14px;color:var(--muted);">Deleting your account permanently removes your profile, categories, transactions, budgets, recurring rules, lending agreements &amp; repayments, consent logs, and Supabase authentication credentials. Local SMS queues and offline caches on your device are wiped when performed from the app (Settings &rarr; Privacy &amp; Data Center &rarr; Delete Account).</p>
+    </section>
+
+    <section>
+      <h2>Request Deletion by Email (Non-Enumerating)</h2>
+      <form id="del-form">
+        <label for="del-email">Registered Account Email</label>
+        <input id="del-email" type="email" required placeholder="you@example.com"/>
+        <label for="del-note">Additional Details (Optional)</label>
+        <textarea id="del-note" rows="3" placeholder="e.g., Lost device access — request complete account erasure."></textarea>
+        <button type="submit">Submit Deletion Request</button>
+      </form>
+      <div id="del-status" class="status" role="status" aria-live="polite"></div>
+    </section>
+  </main>
+  <script>
+    document.getElementById('del-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      var cfg = window.XPENSE_PUBLIC_CONFIG || {};
+      var email = document.getElementById('del-email').value.trim();
+      var note = document.getElementById('del-note').value.trim();
+      var box = document.getElementById('del-status');
+      box.className = 'status show';
+      if (!cfg.supabaseUrl || !cfg.supabaseAnonKey) {
+        box.textContent = 'To verify and complete deletion while this static page is not connected to a project config, email ' + (cfg.supportEmail || 'support@xpensetracker.app') + ' from ' + email + ' with subject "Account Deletion Request".';
+        return;
+      }
+      try {
+        var res = await fetch(cfg.supabaseUrl.replace(/\/$/, '') + '/rest/v1/rpc/submit_external_privacy_request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': cfg.supabaseAnonKey, 'Authorization': 'Bearer ' + cfg.supabaseAnonKey },
+          body: JSON.stringify({ p_email: email, p_request_type: 'deletion', p_details: note })
+        });
+        var data = await res.json();
+        box.textContent = (data && data.message) || 'If an account matches that email, your deletion request has been logged.';
+      } catch (err) {
+        box.textContent = 'Network error. Email ' + (cfg.supportEmail || 'support@xpensetracker.app') + ' from your registered address.';
+      }
+    });
+  </script>
+</body>
+</html>

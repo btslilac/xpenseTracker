@@ -182,6 +182,13 @@ html, body {
   transition: background-color var(--motion-duration) ease, color var(--motion-duration) ease;
 }
 
+/* Suppress all color/surface transitions while switching themes so colors never flicker mid-frame */
+html.xp-theme-switching *,
+html.xp-theme-switching *::before,
+html.xp-theme-switching *::after {
+  transition: none !important;
+}
+
 ::selection {
   background-color: var(--selection-bg);
   color: var(--text-primary);
@@ -737,12 +744,114 @@ ${!isGlass ? `
   }
 }
 
-/* Minimum Accessible Touch Targets */
+/* Minimum Accessible Touch Targets (44-48dp logical target sizing) */
 button, a, [role="button"], input[type="submit"], input[type="button"], select {
   touch-action: manipulation;
 }
-a[href], button:not(.no-min-touch):not(.xp-switch) {
+a[href], button:not(.no-min-touch):not(.xp-switch), [role="button"]:not(.xp-switch) {
   min-height: 44px;
+  min-width: 44px;
+}
+
+/* Phase 2/3 Motion Engineering System — transform & opacity only, unified squash-and-stretch (0.97) */
+@keyframes xpPasswordShake {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  16% { transform: translate3d(-7px, 0, 0); }
+  34% { transform: translate3d(7px, 0, 0); }
+  52% { transform: translate3d(-5px, 0, 0); }
+  70% { transform: translate3d(4px, 0, 0); }
+  86% { transform: translate3d(-2px, 0, 0); }
+}
+
+@keyframes xpStepEnterNext {
+  from { opacity: 0.01; transform: translate3d(18px, 0, 0) scale(0.985); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes xpStepEnterPrev {
+  from { opacity: 0.01; transform: translate3d(-18px, 0, 0) scale(0.985); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes xpSurfacePop {
+  from { opacity: 0.01; transform: translate3d(0, 6px, 0) scale(0.97); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+.xp-shake {
+  animation: ${rm ? 'none' : 'xpPasswordShake 340ms cubic-bezier(0.36, 0.07, 0.19, 0.97) both'};
+  will-change: transform;
+}
+
+.xp-input-error {
+  border-color: var(--fin-expense, #ef4444) !important;
+  box-shadow: 0 0 0 3px var(--fin-expense-bg, rgba(239, 68, 68, 0.16)) !important;
+}
+
+.xp-step-enter-next {
+  animation: ${rm ? 'none' : 'xpStepEnterNext 200ms var(--motion-curve) both'};
+}
+
+.xp-step-enter-prev {
+  animation: ${rm ? 'none' : 'xpStepEnterPrev 200ms var(--motion-curve) both'};
+}
+
+.xp-surface-enter {
+  animation: ${rm ? 'none' : 'xpSurfacePop 180ms var(--motion-curve) both'};
+}
+
+/* Smooth CSS-Grid Accordion (pose-to-pose transition without abrupt snap) */
+.xp-accordion-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: ${rm ? 'none' : 'grid-template-rows 200ms var(--motion-curve), opacity 180ms ease'};
+}
+.xp-accordion-body > .xp-accordion-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+.xp-accordion-item[data-open="true"] > .xp-accordion-body {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+/* Elastic Horizontal Carousel */
+.xp-carousel {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  gap: 12px;
+}
+.xp-carousel::-webkit-scrollbar { display: none; }
+.xp-carousel > * { scroll-snap-align: start; flex-shrink: 0; }
+
+/* Adaptive Tooltip */
+.xp-tooltip-bubble {
+  position: fixed;
+  z-index: 100030;
+  max-width: 240px;
+  padding: 8px 11px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  background: var(--surface-card-strong, #0f172a);
+  color: var(--text-primary, #f8fafc);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--elevated-shadow);
+  backdrop-filter: var(--glass-blur);
+  pointer-events: none;
+  opacity: 0;
+  transform: translate3d(0, 4px, 0) scale(0.97);
+  transition: ${rm ? 'none' : 'opacity 140ms ease, transform 160ms var(--motion-curve)'};
+}
+.xp-tooltip-bubble.visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
 }
 
 /* Reduced Motion Accessibility Override */
@@ -754,9 +863,30 @@ ${rm ? `
   scroll-behavior: auto !important;
 }
 ` : `
-.active\\:scale-95:active, .active\\:scale-98:active, .active\\:scale-\\[0\\.98\\]:active {
-  transition: transform var(--motion-duration) var(--motion-curve);
+button:not(.xp-switch):not(.no-press-scale),
+a[href],
+[role="button"]:not(.xp-switch),
+.active\\:scale-95,
+.active\\:scale-98,
+.active\\:scale-\\[0\\.98\\] {
+  transition: transform 140ms var(--motion-curve), opacity 140ms ease, background-color 140ms ease, border-color 140ms ease;
+}
+button:not(.xp-switch):not(.no-press-scale):active,
+a[href]:active,
+[role="button"]:not(.xp-switch):active,
+.active\\:scale-95:active,
+.active\\:scale-98:active,
+.active\\:scale-\\[0\\.98\\]:active {
+  transform: scale(0.97) !important;
 }
 `}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
 `
 }

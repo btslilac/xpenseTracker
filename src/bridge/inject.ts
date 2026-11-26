@@ -75,10 +75,6 @@ export function inject(baseHtml: string, script: string, payload?: any, route?: 
         --safe-top: ${safeAreaTop}px;
         --safe-bottom: ${safeAreaBottom}px;
       }
-      @keyframes shimmer {
-        0% { background-position: -1000px 0; }
-        100% { background-position: 1000px 0; }
-      }
       @keyframes xpEnterForward {
         from { opacity: 0.01; transform: translate3d(14px, 0, 0); }
         to { opacity: 1; transform: translate3d(0, 0, 0); }
@@ -103,21 +99,6 @@ export function inject(baseHtml: string, script: string, payload?: any, route?: 
       html[data-reduced-motion="true"] main {
         animation: none !important;
       }
-      .skeleton-shimmer, .xp-skeleton {
-        animation: shimmer 1.8s infinite linear;
-        background: linear-gradient(
-          90deg,
-          var(--surface-container-low, rgba(130, 130, 130, 0.1)) 12%,
-          var(--surface-container-high, rgba(130, 130, 130, 0.22)) 38%,
-          var(--surface-container-low, rgba(130, 130, 130, 0.1)) 65%
-        );
-        background-size: 1000px 100%;
-        border-radius: 12px;
-      }
-      html[data-reduced-motion="true"] .skeleton-shimmer,
-      html[data-reduced-motion="true"] .xp-skeleton {
-        animation: none !important;
-      }
     </style><style id="xpense-theme-css">${themeCss}</style></head>`,
   )
 
@@ -125,8 +106,10 @@ export function inject(baseHtml: string, script: string, payload?: any, route?: 
     window.__applyXpenseTheme = function(update) {
       try {
         if (!update) return;
+        var rootEl = document.documentElement;
+        rootEl.classList.add('xp-theme-switching');
         if (typeof update.htmlClass === 'string') {
-          document.documentElement.className = update.htmlClass;
+          rootEl.className = update.htmlClass + ' xp-theme-switching';
         }
         if (typeof update.themeCss === 'string') {
           var styleEl = document.getElementById('xpense-theme-css');
@@ -147,8 +130,94 @@ export function inject(baseHtml: string, script: string, payload?: any, route?: 
           window.__onXpenseThemeApplied(update);
         }
         document.dispatchEvent(new CustomEvent('xpense:theme-changed', { detail: update }));
+        requestAnimationFrame(function() {
+          requestAnimationFrame(function() {
+            rootEl.classList.remove('xp-theme-switching');
+          });
+        });
       } catch (e) {}
     };
+
+    // Adaptive Tooltip Timing + Disableable Help Hints
+    (function() {
+      var bubble = null;
+      var showTimer = null;
+      var hideTimer = null;
+      var lastDismissTs = 0;
+
+      function tooltipsDisabled() {
+        try {
+          if (window.__STITCH_DATA__ && window.__STITCH_DATA__.helpTooltipsDisabled === true) return true;
+          return localStorage.getItem('xpense_tooltips_disabled') === 'true';
+        } catch (e) { return false; }
+      }
+
+      window.__stitchSetTooltipsDisabled = function(disabled) {
+        try { localStorage.setItem('xpense_tooltips_disabled', disabled ? 'true' : 'false'); } catch (e) {}
+        if (disabled && bubble) {
+          bubble.classList.remove('visible');
+        }
+      };
+
+      function ensureBubble() {
+        if (!bubble) {
+          bubble = document.createElement('div');
+          bubble.className = 'xp-tooltip-bubble';
+          bubble.setAttribute('role', 'tooltip');
+          document.body && document.body.appendChild(bubble);
+        }
+        return bubble;
+      }
+
+      function hideTooltip() {
+        clearTimeout(showTimer);
+        clearTimeout(hideTimer);
+        if (bubble && bubble.classList.contains('visible')) {
+          bubble.classList.remove('visible');
+          lastDismissTs = Date.now();
+        }
+      }
+
+      function showTooltipFor(el) {
+        if (tooltipsDisabled()) return;
+        var text = el && el.getAttribute('data-xp-tooltip');
+        if (!text) return;
+        clearTimeout(showTimer);
+        clearTimeout(hideTimer);
+        var warmSession = Date.now() - lastDismissTs < 1200;
+        var delay = warmSession ? 75 : 360;
+        showTimer = setTimeout(function() {
+          if (tooltipsDisabled()) return;
+          var b = ensureBubble();
+          b.textContent = text;
+          b.style.left = '-9999px';
+          b.style.top = '0px';
+          b.classList.add('visible');
+          var rect = el.getBoundingClientRect();
+          var bRect = b.getBoundingClientRect();
+          var left = Math.max(12, Math.min(window.innerWidth - bRect.width - 12, rect.left + (rect.width - bRect.width) / 2));
+          var top = rect.top - bRect.height - 8;
+          if (top < 12) top = rect.bottom + 8;
+          b.style.left = left + 'px';
+          b.style.top = top + 'px';
+          hideTimer = setTimeout(hideTooltip, 4500);
+        }, delay);
+      }
+
+      document.addEventListener('pointerenter', function(e) {
+        var el = e.target && e.target.closest ? e.target.closest('[data-xp-tooltip]') : null;
+        if (el) showTooltipFor(el);
+      }, true);
+      document.addEventListener('pointerleave', function(e) {
+        if (e.target && e.target.closest && e.target.closest('[data-xp-tooltip]')) hideTooltip();
+      }, true);
+      document.addEventListener('focusin', function(e) {
+        var el = e.target && e.target.closest ? e.target.closest('[data-xp-tooltip]') : null;
+        if (el) showTooltipFor(el);
+      });
+      document.addEventListener('focusout', hideTooltip);
+      document.addEventListener('scroll', hideTooltip, { passive: true });
+    })();
   `
 
   const hapticScript = `

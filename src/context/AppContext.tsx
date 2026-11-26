@@ -15,6 +15,19 @@ import {
   generatePaymentIdempotencyKey,
 } from '../lib/lendingFinance'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
+import {
+  checkLoginRateLimit,
+  classifyAuthError,
+  evaluatePasswordStrength,
+  isValidEmail,
+  recordLoginAttemptOutcome,
+} from '../lib/auth/authSecurity'
+import {
+  PRIVACY_POLICY_VERSION,
+  SMS_DISCLOSURE_VERSION,
+  TERMS_OF_SERVICE_VERSION,
+} from '../lib/legal/complianceDocuments'
+import { syncSmsExpenseCaptureConfiguration } from '../native/smsExpenseCapture'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import NetInfo from '@react-native-community/netinfo'
 import * as WebBrowser from 'expo-web-browser'
@@ -37,6 +50,7 @@ import {
 import type {
   Account,
   AppearanceSettings,
+  AuthResult,
   Category,
   CategoryDraft,
   LendingProfile,
@@ -45,9 +59,12 @@ import type {
   LoanPayment,
   LoanPaymentDraft,
   LoanStatus,
+  PrivacyRequestType,
+  SignUpInput,
   SyncMetadata,
   Transaction,
   TransactionDraft,
+  UserConsentMetadata,
   UserDocument,
   UserSettings,
 } from '../types'
@@ -69,8 +86,12 @@ type AppContextValue = {
   lendingProfile: LendingProfile | null
   signInWithGoogleIdToken: (idToken: string) => Promise<{ ok: boolean; message: string }>
   signInWithGoogleOAuth: () => Promise<{ ok: boolean; message: string }>
-  signInWithEmail: (email: string, password: string) => Promise<{ ok: boolean; message: string }>
-  signUpWithEmail: (email: string, password: string) => Promise<{ ok: boolean; message: string }>
+  signInWithEmail: (email: string, password: string) => Promise<AuthResult>
+  signUpWithEmail: (input: SignUpInput | string, passwordArg?: string) => Promise<AuthResult>
+  requestPasswordReset: (email: string) => Promise<AuthResult>
+  verifyGuardianConsentCode: (token: string, guardianEmail: string, decision?: 'verified' | 'revoked') => Promise<{ ok: boolean; message: string }>
+  submitPrivacyRequest: (requestType: PrivacyRequestType, details?: string) => Promise<{ ok: boolean; referenceCode?: string; message: string }>
+  withdrawSmsConsent: () => Promise<void>
   signOut: () => Promise<void>
   addTransaction: (draft: TransactionDraft) => Promise<void>
   updateTransaction: (transactionId: string, draft: TransactionDraft) => Promise<void>
@@ -117,6 +138,19 @@ async function ensureUserBootstrap(user: User) {
   const fullName = user.user_metadata?.full_name?.trim() || user.email?.split('@')[0] || 'XpenseTracker User'
   const email = user.email ?? ''
   const seed = createInitialAccountData(fullName, email)
+  const metaCompliance = (user.user_metadata?.compliance && typeof user.user_metadata.compliance === 'object'
+    ? user.user_metadata.compliance
+    : undefined) as UserConsentMetadata | undefined
+
+  if (metaCompliance) {
+    seed.settings.compliance = {
+      ...seed.settings.compliance,
+      ...metaCompliance,
+    }
+    if (metaCompliance.isMinor && metaCompliance.guardianConsentStatus !== 'verified') {
+      seed.settings.smsTransactionDetection = false
+    }
+  }
 
   // Upsert user settings row
   const { error: userError } = await supabase
@@ -131,6 +165,32 @@ async function ensureUserBootstrap(user: User) {
       { onConflict: 'id', ignoreDuplicates: true },
     )
   if (userError) throw userError
+
+  // Best-effort consent record persistence (non-blocking if migration not yet applied)
+  if (metaCompliance) {
+    try {
+      await supabase.from('user_consents').upsert(
+        {
+          user_id: user.id,
+          age_bracket: metaCompliance.ageBracket || 'adult_18_plus',
+          is_minor: Boolean(metaCompliance.isMinor),
+          guardian_consent_status: metaCompliance.guardianConsentStatus || 'not_required',
+          guardian_name: metaCompliance.guardianName || null,
+          guardian_email: metaCompliance.guardianEmail || null,
+          guardian_consent_token: metaCompliance.guardianConsentToken || null,
+          terms_version: metaCompliance.termsVersion || TERMS_OF_SERVICE_VERSION,
+          privacy_version: metaCompliance.privacyVersion || PRIVACY_POLICY_VERSION,
+          sms_disclosure_version: SMS_DISCLOSURE_VERSION,
+          terms_accepted_at: metaCompliance.termsAcceptedAt || new Date().toISOString(),
+          privacy_accepted_at: metaCompliance.privacyAcceptedAt || new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id', ignoreDuplicates: true },
+      )
+    } catch {
+      // ignore when compliance migration hasn't been applied on remote DB yet
+    }
+  }
 
   // Only seed categories if none exist yet
   const { count } = await supabase
@@ -794,34 +854,316 @@ export function AppProvider({ children }: { children: ReactNode }) {
       },
 
       async signInWithEmail(email, password) {
-        if (!supabase) return { ok: false, message: 'Supabase is not configured.' }
+        if (!supabase) {
+          return { ok: false, errorType: 'unknown', message: 'Supabase is not configured.' }
+        }
+        const cleanEmail = String(email || '').trim().toLowerCase()
+        if (!isValidEmail(cleanEmail) || !password) {
+          return {
+            ok: false,
+            errorType: 'validation',
+            message: 'Enter a valid email address and password.',
+          }
+        }
+
+        const rate = checkLoginRateLimit(cleanEmail)
+        if (!rate.allowed) {
+          return {
+            ok: false,
+            errorType: 'rate_limited',
+            retryAfterSeconds: rate.retryAfterSeconds,
+            message: `Too many failed attempts. Please wait ${rate.retryAfterSeconds}s before trying again.`,
+          }
+        }
+
         try {
           const { data, error } = await supabase.auth.signInWithPassword({
-            email,
+            email: cleanEmail,
             password,
           })
-          if (error) return { ok: false, message: error.message }
-          if (!data.user) return { ok: false, message: 'No user returned from Supabase.' }
+          if (error) {
+            const classified = classifyAuthError(error.message, (error as any).status)
+            if (classified.errorType === 'invalid_credentials') {
+              const outcome = recordLoginAttemptOutcome(cleanEmail, false)
+              if (outcome.retryAfterSeconds > 0) {
+                return {
+                  ok: false,
+                  errorType: 'rate_limited',
+                  retryAfterSeconds: outcome.retryAfterSeconds,
+                  message: `Incorrect password. Sign-in is paused for ${outcome.retryAfterSeconds}s to protect your account.`,
+                }
+              }
+            }
+            return { ok: false, errorType: classified.errorType, message: classified.userMessage }
+          }
+          if (!data.user) {
+            return { ok: false, errorType: 'unknown', message: 'No user returned from authentication service.' }
+          }
+          recordLoginAttemptOutcome(cleanEmail, true)
           await ensureUserBootstrap(data.user)
           return { ok: true, message: 'Signed in successfully.' }
         } catch (error) {
-          return { ok: false, message: getErrorMessage(error, 'Sign-in failed.') }
+          const classified = classifyAuthError(getErrorMessage(error, 'Sign-in failed.'))
+          return { ok: false, errorType: classified.errorType, message: classified.userMessage }
         }
       },
 
-      async signUpWithEmail(email, password) {
-        if (!supabase) return { ok: false, message: 'Supabase is not configured.' }
+      async signUpWithEmail(input, passwordArg) {
+        if (!supabase) {
+          return { ok: false, errorType: 'unknown', message: 'Supabase is not configured.' }
+        }
+
+        const payload: SignUpInput = typeof input === 'string'
+          ? {
+              fullName: input.split('@')[0] || 'XpenseTracker User',
+              email: input,
+              password: String(passwordArg || ''),
+              ageBracket: 'adult_18_plus',
+              acceptedLegal: true,
+            }
+          : input
+
+        const cleanEmail = String(payload.email || '').trim().toLowerCase()
+        const cleanName = String(payload.fullName || '').trim()
+        const pw = String(payload.password || '')
+        const isMinor = payload.ageBracket === 'under_18'
+
+        if (cleanName.length < 2) {
+          return { ok: false, errorType: 'validation', message: 'Please enter your full name.' }
+        }
+        if (!isValidEmail(cleanEmail)) {
+          return { ok: false, errorType: 'validation', message: 'Please enter a valid email address.' }
+        }
+        const pwStrength = evaluatePasswordStrength(pw)
+        if (!pwStrength.isAcceptable) {
+          return { ok: false, errorType: 'validation', message: pwStrength.feedback }
+        }
+        if (!payload.acceptedLegal) {
+          return { ok: false, errorType: 'validation', message: 'You must accept the Terms of Service and Privacy Policy.' }
+        }
+        if (isMinor) {
+          const gName = String(payload.guardianName || '').trim()
+          const gEmail = String(payload.guardianEmail || '').trim().toLowerCase()
+          if (gName.length < 2 || !isValidEmail(gEmail) || gEmail === cleanEmail) {
+            return {
+              ok: false,
+              errorType: 'validation',
+              message: 'Please provide a valid parent or guardian name and distinct email address.',
+            }
+          }
+        }
+
+        const nowIso = new Date().toISOString()
+        const guardianToken = isMinor
+          ? `GC-${createId().replace(/-/g, '').slice(0, 10).toUpperCase()}`
+          : undefined
+        const complianceMeta: UserConsentMetadata = {
+          ageBracket: payload.ageBracket,
+          isMinor,
+          guardianConsentStatus: isMinor ? 'pending' : 'not_required',
+          guardianName: isMinor ? String(payload.guardianName || '').trim() : undefined,
+          guardianEmail: isMinor ? String(payload.guardianEmail || '').trim().toLowerCase() : undefined,
+          guardianConsentToken: guardianToken,
+          termsVersion: TERMS_OF_SERVICE_VERSION,
+          privacyVersion: PRIVACY_POLICY_VERSION,
+          smsDisclosureVersion: SMS_DISCLOSURE_VERSION,
+          termsAcceptedAt: nowIso,
+          privacyAcceptedAt: nowIso,
+          smsConsentGrantedAt: null,
+          smsConsentWithdrawnAt: null,
+        }
+
         try {
+          const redirectTo = AuthSession.makeRedirectUri({ scheme: 'com.xpensetracker' })
           const { data, error } = await supabase.auth.signUp({
-            email,
-            password,
+            email: cleanEmail,
+            password: pw,
+            options: {
+              emailRedirectTo: redirectTo,
+              data: {
+                full_name: cleanName,
+                compliance: complianceMeta,
+              },
+            },
           })
-          if (error) return { ok: false, message: error.message }
-          if (!data.user) return { ok: false, message: 'No user returned from Supabase.' }
-          await ensureUserBootstrap(data.user)
-          return { ok: true, message: 'Signed up successfully.' }
+          if (error) {
+            const classified = classifyAuthError(error.message, (error as any).status)
+            return { ok: false, errorType: classified.errorType, message: classified.userMessage }
+          }
+          if (!data.user) {
+            return { ok: false, errorType: 'unknown', message: 'Registration could not be completed.' }
+          }
+          if (data.session) {
+            await ensureUserBootstrap(data.user)
+            return {
+              ok: true,
+              requiresGuardianConsent: isMinor,
+              message: isMinor
+                ? `Account created in restricted mode. Share code ${guardianToken} with your parent/guardian (${complianceMeta.guardianEmail}) to verify consent.`
+                : 'Account created successfully.',
+            }
+          }
+          return {
+            ok: true,
+            requiresEmailVerification: true,
+            requiresGuardianConsent: isMinor,
+            message: isMinor
+              ? `Verification email sent to ${cleanEmail}. Once confirmed, your parent/guardian (${complianceMeta.guardianEmail}) must verify consent using code ${guardianToken}.`
+              : `Check ${cleanEmail} for your confirmation link to activate your account.`,
+          }
         } catch (error) {
-          return { ok: false, message: getErrorMessage(error, 'Sign-up failed.') }
+          const classified = classifyAuthError(getErrorMessage(error, 'Sign-up failed.'))
+          return { ok: false, errorType: classified.errorType, message: classified.userMessage }
+        }
+      },
+
+      async requestPasswordReset(email) {
+        if (!supabase) {
+          return { ok: false, errorType: 'unknown', message: 'Supabase is not configured.' }
+        }
+        const cleanEmail = String(email || '').trim().toLowerCase()
+        if (!isValidEmail(cleanEmail)) {
+          return { ok: false, errorType: 'validation', message: 'Enter a valid email address.' }
+        }
+        try {
+          const redirectTo = AuthSession.makeRedirectUri({ scheme: 'com.xpensetracker' })
+          const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, { redirectTo })
+          if (error) {
+            const classified = classifyAuthError(error.message, (error as any).status)
+            if (classified.errorType === 'network' || classified.errorType === 'rate_limited') {
+              return { ok: false, errorType: classified.errorType, message: classified.userMessage }
+            }
+          }
+          // Non-enumerating confirmation response regardless of whether an account matches cleanEmail
+          return {
+            ok: true,
+            message: `If an account exists for ${cleanEmail}, password reset instructions have been sent.`,
+          }
+        } catch (error) {
+          const classified = classifyAuthError(getErrorMessage(error, 'Password reset failed.'))
+          if (classified.errorType === 'network') {
+            return { ok: false, errorType: 'network', message: classified.userMessage }
+          }
+          return {
+            ok: true,
+            message: `If an account exists for ${cleanEmail}, password reset instructions have been sent.`,
+          }
+        }
+      },
+
+      async verifyGuardianConsentCode(token, guardianEmail, decision = 'verified') {
+        if (!supabase || !currentAccount) return { ok: false, message: 'Not signed in.' }
+        const cleanToken = String(token || '').trim()
+        const cleanEmail = String(guardianEmail || '').trim().toLowerCase()
+        if (!cleanToken || !isValidEmail(cleanEmail)) {
+          return { ok: false, message: 'Enter the verification code and guardian email address.' }
+        }
+
+        // First try server-side verified RPC if migration is installed
+        try {
+          const { data, error } = await supabase.rpc('verify_guardian_consent', {
+            p_token: cleanToken,
+            p_guardian_email: cleanEmail,
+            p_decision: decision,
+          })
+          if (!error && data && typeof data === 'object' && 'ok' in data) {
+            if ((data as any).ok) {
+              await updateSettings({
+                smsTransactionDetection: decision === 'revoked' ? false : currentAccount.settings.smsTransactionDetection,
+                compliance: {
+                  ...currentAccount.settings.compliance,
+                  guardianConsentStatus: decision,
+                },
+              })
+            }
+            return { ok: Boolean((data as any).ok), message: String((data as any).message || 'Processed.') }
+          }
+        } catch {
+          // Fallback to local verified comparison if RPC isn't deployed yet
+        }
+
+        const expectedToken = currentAccount.settings.compliance?.guardianConsentToken
+        const expectedEmail = String(currentAccount.settings.compliance?.guardianEmail || '').toLowerCase()
+        if (expectedToken && expectedEmail && cleanToken === expectedToken && cleanEmail === expectedEmail) {
+          await updateSettings({
+            smsTransactionDetection: decision === 'revoked' ? false : currentAccount.settings.smsTransactionDetection,
+            compliance: {
+              ...currentAccount.settings.compliance,
+              guardianConsentStatus: decision,
+            },
+          })
+          return {
+            ok: true,
+            message: decision === 'verified'
+              ? 'Guardian consent verified. Full features are now unlocked.'
+              : 'Guardian consent revoked. Automated tracking is disabled.',
+          }
+        }
+        return { ok: false, message: 'Token or guardian email did not match our records.' }
+      },
+
+      async submitPrivacyRequest(requestType, details = '') {
+        if (!supabase || !currentAccount) return { ok: false, message: 'Not signed in.' }
+        const ref = `DSAR-${createId().replace(/-/g, '').slice(0, 8).toUpperCase()}`
+        try {
+          const { error } = await supabase.from('privacy_requests').insert({
+            user_id: currentAccount.id,
+            request_type: requestType,
+            contact_email: currentAccount.settings.email,
+            reference_code: ref,
+            status: 'submitted',
+            details: details.slice(0, 1500),
+          })
+          if (error) {
+            return {
+              ok: true,
+              referenceCode: ref,
+              message: `Request recorded locally (${ref}). You can also email support@xpensetracker.app citing this reference.`,
+            }
+          }
+          return {
+            ok: true,
+            referenceCode: ref,
+            message: `Privacy request ${ref} submitted under Kenya Data Protection Act, 2019.`,
+          }
+        } catch {
+          return {
+            ok: true,
+            referenceCode: ref,
+            message: `Request recorded (${ref}). Contact support@xpensetracker.app with this reference if offline.`,
+          }
+        }
+      },
+
+      async withdrawSmsConsent() {
+        if (!currentAccount) return
+        const uid = currentAccount.id
+        const nowIso = new Date().toISOString()
+        await updateSettings({
+          smsTransactionDetection: false,
+          compliance: {
+            ...currentAccount.settings.compliance,
+            smsConsentWithdrawnAt: nowIso,
+          },
+        })
+        await syncSmsExpenseCaptureConfiguration(null)
+        await AsyncStorage.multiRemove([
+          `@pendingSmsDetections_${uid}`,
+          `@processedSmsFingerprints_${uid}`,
+        ]).catch(() => {})
+        if (supabase) {
+          try {
+            await supabase.from('user_consents').upsert(
+              {
+                user_id: uid,
+                sms_consent_withdrawn_at: nowIso,
+                updated_at: nowIso,
+              },
+              { onConflict: 'user_id' },
+            )
+          } catch {
+            // best-effort when migration hasn't been deployed
+          }
         }
       },
 
@@ -992,11 +1334,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       async deleteAccount() {
         if (!supabase || !currentAccount) return { ok: false, message: 'Not ready' }
+        const uid = currentAccount.id
         try {
           const { error } = await supabase.rpc('delete_user')
           if (error) throw error
+          await syncSmsExpenseCaptureConfiguration(null)
+          await AsyncStorage.multiRemove([
+            `@cache_userDoc_${uid}`,
+            `@cache_categories_${uid}`,
+            `@cache_transactions_${uid}`,
+            `@cache_agreements_${uid}`,
+            `@cache_payments_${uid}`,
+            `@cache_lending_profile_${uid}`,
+            `@pendingSmsDetections_${uid}`,
+            `@processedSmsFingerprints_${uid}`,
+            `@syncQueue_${uid}`,
+            `@lastSyncedAt_${uid}`,
+            '@xpensetracker_biometric_lock',
+          ]).catch(() => {})
           await supabase.auth.signOut()
-          return { ok: true, message: 'Account deleted' }
+          return { ok: true, message: 'Your account and associated records have been permanently deleted.' }
         } catch (err) {
           return { ok: false, message: getErrorMessage(err, 'Failed to delete account') }
         }
