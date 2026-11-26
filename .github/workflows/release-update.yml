@@ -46,15 +46,15 @@ jobs:
 
       - name: Verify required release secrets upfront
         env:
-          HAS_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL != '' }}
-          HAS_ANON: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY != '' }}
-          HAS_SERVICE: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY != '' }}
+          CHECK_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          CHECK_ANON: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          CHECK_SERVICE: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           node <<'EOF'
           const missing = [];
-          if (process.env.HAS_URL !== 'true') missing.push('EXPO_PUBLIC_SUPABASE_URL');
-          if (process.env.HAS_ANON !== 'true') missing.push('EXPO_PUBLIC_SUPABASE_ANON_KEY');
-          if (process.env.HAS_SERVICE !== 'true') missing.push('SUPABASE_SERVICE_ROLE_KEY');
+          if (!process.env.CHECK_URL) missing.push('EXPO_PUBLIC_SUPABASE_URL');
+          if (!process.env.CHECK_ANON) missing.push('EXPO_PUBLIC_SUPABASE_ANON_KEY');
+          if (!process.env.CHECK_SERVICE) missing.push('SUPABASE_SERVICE_ROLE_KEY');
           if (missing.length > 0) {
             console.error('Missing required GitHub Repository Secrets: ' + missing.join(', '));
             console.error('Add them under Repo Settings -> Secrets and variables -> Actions.');
@@ -144,9 +144,15 @@ jobs:
           EOF
 
       - name: Decode Android upload keystore (optional override)
-        if: secrets.ANDROID_KEYSTORE_BASE64 != ''
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/release.keystore
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/release.keystore
+            echo "Decoded custom upload keystore from ANDROID_KEYSTORE_BASE64."
+          else
+            echo "Using repository release.keystore."
+          fi
 
       - name: Build signed Release APK
         working-directory: android
