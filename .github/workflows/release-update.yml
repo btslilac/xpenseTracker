@@ -95,26 +95,32 @@ jobs:
         run: |
           node <<'EOF'
           const fs = require('fs');
+          const { execFileSync } = require('child_process');
           const isDispatch = process.env.EVENT_NAME === 'workflow_dispatch';
           const version = (isDispatch ? process.env.INPUT_VERSION : process.env.REF_NAME).replace(/^v/i, '').trim();
           if (!/^\d+\.\d+\.\d+$/.test(version)) {
             console.error('Invalid semantic version:', version);
             process.exit(1);
           }
+          const buildArg = (process.env.INPUT_BUILD || '').trim();
+          const syncArgs = ['scripts/sync-version.mjs', version];
+          if (buildArg) syncArgs.push(buildArg);
+          execFileSync(process.execPath, syncArgs, { stdio: 'inherit' });
+
+          const appCfg = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+          const buildCode = String(appCfg.expo.android.versionCode);
           const title = isDispatch && process.env.INPUT_TITLE ? process.env.INPUT_TITLE : 'XpenseTracker v' + version;
           const notes = isDispatch && process.env.INPUT_NOTES ? process.env.INPUT_NOTES : 'Release v' + version;
           const mandatory = isDispatch ? String(process.env.INPUT_MANDATORY === 'true') : 'false';
           const buildAab = isDispatch ? String(process.env.INPUT_AAB !== 'false') : 'true';
           const out = process.env.GITHUB_OUTPUT;
           fs.appendFileSync(out, 'version=' + version + '\n');
+          fs.appendFileSync(out, 'build_code=' + buildCode + '\n');
           fs.appendFileSync(out, 'title=' + title.replace(/[\r\n]+/g, ' ') + '\n');
           fs.appendFileSync(out, 'notes=' + notes.replace(/[\r\n]+/g, ' ') + '\n');
           fs.appendFileSync(out, 'mandatory=' + mandatory + '\n');
           fs.appendFileSync(out, 'build_aab=' + buildAab + '\n');
           EOF
-          node scripts/sync-version.mjs "${{ steps.meta.outputs.version }}" "${{ inputs.build_number }}"
-          BUILD_CODE=$(node -e "console.log(require('./app.json').expo.android.versionCode)")
-          echo "build_code=$BUILD_CODE" >> "$GITHUB_OUTPUT"
 
       - name: Install dependencies
         run: npm ci
