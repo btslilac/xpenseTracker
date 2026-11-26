@@ -185,15 +185,12 @@ jobs:
           APK_FILE="XpenseTracker-v${VERSION}.apk"
           cp android/app/build/outputs/apk/release/XpenseTracker.apk "$APK_FILE"
           sha256sum "$APK_FILE" > "${APK_FILE}.sha256"
-          FILES="$APK_FILE,${APK_FILE}.sha256"
           AAB_SRC=$(find android/app/build/outputs/bundle/release -name '*.aab' 2>/dev/null | head -n 1 || true)
           if [ -n "$AAB_SRC" ] && [ -f "$AAB_SRC" ]; then
             AAB_FILE="XpenseTracker-v${VERSION}.aab"
             cp "$AAB_SRC" "$AAB_FILE"
             sha256sum "$AAB_FILE" > "${AAB_FILE}.sha256"
-            FILES="$FILES,$AAB_FILE,${AAB_FILE}.sha256"
           fi
-          echo "files=$FILES" >> "$GITHUB_OUTPUT"
           echo "sha256=$(cut -d' ' -f1 "${APK_FILE}.sha256")" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release & upload APK/AAB
@@ -207,7 +204,11 @@ jobs:
 
             - **Version:** `v${{ steps.meta.outputs.version }}` (versionCode `${{ steps.meta.outputs.build_code }}`)
             - **APK SHA-256:** `${{ steps.pkg.outputs.sha256 }}`
-          files: ${{ steps.pkg.outputs.files }}
+          files: |
+            XpenseTracker-v${{ steps.meta.outputs.version }}.apk
+            XpenseTracker-v${{ steps.meta.outputs.version }}.apk.sha256
+            XpenseTracker-v${{ steps.meta.outputs.version }}.aab*
+          fail_on_unmatched_files: false
 
       - name: Publish update metadata to Supabase app_releases
         env:
